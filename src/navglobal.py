@@ -26,5 +26,3 @@ if __name__ == "__main__":
         command = follow_path(robot, path)
         thymio.process_command(command)
         time.sleep(0.1)
-
-# working test
