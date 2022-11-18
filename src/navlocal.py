@@ -36,12 +36,16 @@ def sees_obstacle(sensor_data: model.SensorReading) -> bool:
 
 # You can run this file directly to test your code on the thymio
 if __name__ == "__main__":
-    thymio.initialize()
+    # Create the thymio connection
+    th = thymio.Thymio()
     # Read the sensor data
-    sensor_data = thymio.read_sensor_data()
+    sensor_data = th.read_sensor_data()
     # Avoid obstacle while you see it
     while sees_obstacle(sensor_data):
         command = avoid_obstacle(sensor_data)
-        thymio.process_command(command)
+        th.process_command(command)
         time.sleep(0.1)
-    thymio.stop()
+        sensor_data = th.read_sensor_data()
+
+    # Stop the robot
+    th.stop()

@@ -16,13 +16,15 @@ def follow_path(robot: model.Robot, path: Sequence[model.Point]) -> model.MotorS
 
 # You can run this file directly to test your code on the thymio
 if __name__ == "__main__":
-    thymio.initialize()
+    th = thymio.Thymio()
     # Create a custom robot pose
     robot = model.Robot(position=model.Point(0, 0), angle=0)
     # Create custom path
     path = [model.Point(0, 0), model.Point(0.2, 0.5), model.Point(1, 1)]
 
-    for i in range(100):
+    for i in range(10):
         command = follow_path(robot, path)
-        thymio.process_command(command)
+        th.process_command(command)
         time.sleep(0.1)
+
+    th.stop()
