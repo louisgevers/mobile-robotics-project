@@ -1,34 +1,86 @@
-import tdmclient.notebook
+from tdmclient import ClientAsync, aw
 import numpy as np
 from src import model
+from threading import Thread
+import asyncio
+import time
 
 
-# TODO use thymio interface instead
-# This does not work outside of a notebook...
+class Thymio:
 
+    _node = None
+    _variables = None
 
-async def initialize():
-    await tdmclient.notebook.start()
+    def __init__(self) -> None:
+        # Create initial variables
+        self._variables = {
+            "motor.left.speed": 0,
+            "motor.right.speed": 0,
+            "prox.horizontal": [0, 0, 0, 0, 0],
+            "prox.ground.delta": [0, 0],
+        }
+        # Create thread for reading variables in background
+        t = Thread(target=self._start)
+        t.start()
+        # Wait a bit for initialization
+        time.sleep(1)
 
+    def _start(self):
+        """
+        Starts an asynchronous connection with the Thymio.
+        This has to be run inside a thread to not block the application.
+        """
+        with ClientAsync() as client:
 
-async def stop():
-    tdmclient.notebook.stop()
+            async def prog():
+                with await client.lock() as self._node:
+                    await self._node.watch(variables=True)
+                    self._node.add_variables_changed_listener(self.on_variables_changed)
+                    await client.sleep()
 
+            asyncio.run(prog())
 
-@tdmclient.notebook.sync_var
-def process_command(command: model.MotorSpeed):
-    global motor_left_target, motor_right_target
-    motor_left_target = command.left
-    motor_right_target = command.right
+    def stop(self):
+        """
+        Stops the thymio and unlocks the connection.
+        """
+        self.process_command(model.MotorSpeed(0, 0))
+        aw(self._node.unlock())
 
+    def on_variables_changed(self, node, variables):
+        """
+        Callback for variable changes from thymio.
+        """
+        if self._variables is None:
+            self._variables = variables
+        else:
+            self._variables.update(variables)
 
-@tdmclient.notebook.sync_var
-def read_sensor_data() -> model.SensorReading:
-    global prox_horizontal, prox_ground_delta, motor_left_speed, motor_right_speed
-    horizontal = np.array(prox_horizontal)
-    ground = np.array(prox_ground_delta)
-    return model.SensorReading(
-        horizontal=model.HorizontalSensor(horizontal),
-        vertical=model.GroundSensor(ground),
-        motor=model.MotorSpeed(motor_left_speed, motor_right_speed),
-    )
+    def process_command(self, command: model.MotorSpeed):
+        """
+        Send a motor speed command to the thymio.
+        """
+        if self._node is None:
+            raise "Node has not been initialized before starting robot command"
+        variables = {
+            "motor.left.target": [command.left],
+            "motor.right.target": [command.right],
+        }
+        aw(self._node.set_variables(variables))
+
+    def read_sensor_data(self) -> model.SensorReading:
+        """
+        Obtain the latest sensor data from the thymio
+        """
+        if self._node is None:
+            raise "Node has not been initialized before starting robot command"
+        horizontal = np.array(self._variables["prox.horizontal"])
+        ground = np.array(self._variables["prox.ground.delta"])
+        return model.SensorReading(
+            horizontal=model.HorizontalSensor(horizontal),
+            ground=model.GroundSensor(ground),
+            motor=model.MotorSpeed(
+                self._variables["motor.left.speed"],
+                self._variables["motor.right.speed"],
+            ),
+        )

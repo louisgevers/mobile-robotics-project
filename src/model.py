@@ -43,6 +43,7 @@ class MotorSpeed:
     right: float
 
 
+@dataclass
 class HorizontalSensor:
     v: np.ndarray
 
@@ -67,6 +68,7 @@ class HorizontalSensor:
         return self.v[4]
 
 
+@dataclass
 class GroundSensor:
     v: np.ndarray
 
