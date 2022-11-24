@@ -84,3 +84,16 @@ class Thymio:
                 self._variables["motor.right.speed"],
             ),
         )
+
+    def read_robot_position(self) -> model.Robot:
+        """
+        Obtain the latest sensor data from the robot position
+        """
+        if self._node is None:
+            raise "Node has not been initialized before starting robot command"
+        position = #I have no idea how to get this data 
+        angle = #I have no idea how to get this data 
+        return model.Robot(
+            position = model.Point(0.,0.),
+            angle = 0.,
+        )
