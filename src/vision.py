@@ -33,6 +33,31 @@ def analyze_scene() -> model.World:
     )
 
 
+def get_robot_pose(img: np.ndarray) -> model.Robot:
+    # Filter the blue (front) and yellow (back) squares
+    mask_blue = get_color_mask(img, "blue")
+    mask_yellow = get_color_mask(img, "yellow")
+
+    # Find their centroids
+    centroid_blue = get_centroids(mask_blue)
+    centroid_yellow = get_centroids(mask_yellow)
+
+    if len(centroid_blue) != 1 or len(centroid_yellow) != 1:
+        # Failed to find the blue and yellow centroids
+        return None
+
+    # Get the coordinates of the centroids
+    x1, y1 = centroid_yellow[0]
+    x2, y2 = centroid_blue[0]
+
+    # The robot position corresponds to the center of the line between the two squares
+    x = x1 + (x2 - x1) / 2
+    y = y1 + (y2 - y1) / 2
+
+    # TODO compute orientation
+    return model.Robot(position=model.Point(x, y), angle=0)
+
+
 def get_webcam_capture(builtin: bool) -> cv2.VideoCapture:
     index = 0 if builtin else 2
     return cv2.VideoCapture(index)
@@ -51,12 +76,21 @@ def calibrate_frame(img: np.ndarray) -> np.ndarray:
     )
 
 
-def get_color_mask(img: np.ndarray, color: Literal["red"]) -> np.ndarray:
+def get_color_mask(
+    img: np.ndarray, color: Literal["red", "blue", "yellow"]
+) -> np.ndarray:
     # Use the bounds according to given color.
     # Note that these might have to be recalibrated in different lighting conditions.
+    # TODO make these top-level file constants
     if color == "red":
         lower_bound = np.array([130, 25, 90])
         upper_bound = np.array([180, 255, 255])
+    elif color == "blue":
+        lower_bound = np.array([90, 150, 240])
+        upper_bound = np.array([180, 255, 255])
+    elif color == "yellow":
+        lower_bound = np.array([0, 60, 240])
+        upper_bound = np.array([90, 255, 255])
     else:
         raise Exception(f'Color "{color}" is not a valid color to filter on.')
 
@@ -79,10 +113,13 @@ def get_centroids(img: np.ndarray, frame: bool = False) -> np.ndarray:
     # Get all (external) contours
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
+    # Squares on the robot are smaller than the frame squares
+    min_area = 100 if frame else 20
+
     centroids = []
     for contour in contours:
         # Make sure it's not noise
-        if cv2.contourArea(contour) > 100:
+        if cv2.contourArea(contour) > min_area:
             # Compute moments for centroids
             moment = cv2.moments(contour)
             # Add small value for division by 0 errors
@@ -112,7 +149,7 @@ def get_warped_image(img: np.ndarray, centroids: np.ndarray) -> np.ndarray:
 
 def main():
 
-    source = get_webcam_capture(builtin=True)
+    source = get_webcam_capture(builtin=False)
 
     cv2.namedWindow("Original")
     cv2.namedWindow("Result")
@@ -121,6 +158,18 @@ def main():
 
         _, frame = source.read()
         warped = calibrate_frame(frame)
+        pose = get_robot_pose(warped)
+
+        # Draw the pose
+        if pose is not None:
+            position = np.int32([pose.position.x, pose.position.y])
+            cv2.circle(
+                warped,
+                position,
+                2,
+                (0, 0, 255),
+                thickness=2,
+            )
 
         cv2.imshow("Original", frame)
         cv2.imshow("Result", warped)
