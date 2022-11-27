@@ -54,8 +54,12 @@ def get_robot_pose(img: np.ndarray) -> model.Robot:
     x = x1 + (x2 - x1) / 2
     y = y1 + (y2 - y1) / 2
 
-    # TODO compute orientation
-    return model.Robot(position=model.Point(x, y), angle=0)
+    # Compute signed angle between the y-axis and the robot's orientation
+    v = np.array([x2 - x1, y2 - y1])
+    v = v / np.linalg.norm(v)
+    alpha = -np.arctan2(-v[0], v[1])
+
+    return model.Robot(position=model.Point(x, y), angle=alpha)
 
 
 def get_webcam_capture(builtin: bool) -> cv2.VideoCapture:
@@ -163,12 +167,23 @@ def main():
         # Draw the pose
         if pose is not None:
             position = np.int32([pose.position.x, pose.position.y])
+
+            alpha = pose.angle
+            direction_vector = np.array([-np.sin(-alpha), np.cos(-alpha)])
+
             cv2.circle(
                 warped,
                 position,
                 2,
                 (0, 0, 255),
-                thickness=2,
+                thickness=4,
+            )
+            cv2.arrowedLine(
+                warped,
+                position,
+                position + np.int32(100 * direction_vector),
+                (0, 0, 255),
+                2,
             )
 
         cv2.imshow("Original", frame)
