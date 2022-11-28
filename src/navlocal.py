@@ -3,6 +3,7 @@ import time
 import math
 
 TRESHOLD_IR_SENSOR = 900
+TURN_SPEED = 50
 
 def set_motor_speed(th : thymio.Thymio, speed : model.MotorSpeed):
     command = speed
@@ -11,6 +12,9 @@ def set_motor_speed(th : thymio.Thymio, speed : model.MotorSpeed):
 def avoid_obstacle(th : thymio.Thymio):
     sensor_data = th.read_sensor_data()
     pos_data = th.read_robot_position()
+    last_speed_l = th.read_sensor_data().motor.left
+    last_speed_r = th.read_sensor_data().motor.right
+    last_speed = (last_speed_l+last_speed_r)/2
     time.sleep(0.1)
     while sees_obstacle(sensor_data):
         sensor_data = th.read_sensor_data()
@@ -27,9 +31,9 @@ def avoid_obstacle(th : thymio.Thymio):
             last_angle_pos=current_angle_pos
             sum_angle=sum_angle+delta
             if angle>0:
-                set_motor_speed(th,calculate_speed(1,2))#try different values
+                set_motor_speed(th,calculate_speed(last_speed,TURN_SPEED))#try different values
             else:
-                set_motor_speed(th,calculate_speed(1,-2))#try different values
+                set_motor_speed(th,calculate_speed(last_speed,-TURN_SPEED))#try different values
             if sum_angle>=angle:
                 set_motor_speed(th,calculate_speed(0,0))
                 break
@@ -56,11 +60,7 @@ def get_array(sensor_data: model.SensorReading):
     return [tmp.left,tmp.center_left,tmp.center,tmp.center_right,tmp.right]
 
 def sees_obstacle(sensor_data: model.SensorReading) -> bool:
-    if sensor_data.horizontal.left>TRESHOLD_IR_SENSOR or \
-        sensor_data.horizontal.center_left>TRESHOLD_IR_SENSOR or \
-        sensor_data.horizontal.center>TRESHOLD_IR_SENSOR or \
-        sensor_data.horizontal.center_right>TRESHOLD_IR_SENSOR or \
-        sensor_data.horizontal.right>TRESHOLD_IR_SENSOR :
+    if any(get_array(sensor_data)>TRESHOLD_IR_SENSOR) :
         return True
     return False
 
