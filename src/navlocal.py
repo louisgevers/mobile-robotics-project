@@ -44,7 +44,7 @@ def get_angle(sensor_data: model.SensorReading) -> float:
     alpha = 80/5*math.pi/180
     alpha_array =  [-2*alpha,1*alpha,0,1*alpha,2*alpha]
     tmp1 = 0
-    tmp2 = 0.000000001
+    tmp2 = 10e-7
     for i in range(5):
         tmp1=tmp1+alpha_array[i]*get_array(sensor_data)[i]
         tmp2=tmp2+get_array(sensor_data)[i]
