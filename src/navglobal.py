@@ -3,8 +3,12 @@ from src import model, thymio
 import time
 import numpy as np
 
-#initialized value
+#initialized values
 PID_errors = np.zeros((1,3))
+base_speed = 100
+
+#Ziegler-Nichols method for PID
+Ku, Tu = 1, 1
 
 def follow_path(robot: model.Robot, path: Sequence[model.Point]) -> model.MotorSpeed:
     ### Access the robot's pose
@@ -30,10 +34,7 @@ def follow_path(robot: model.Robot, path: Sequence[model.Point]) -> model.MotorS
     #derivative, d = p - lp
     #update previous error, lp = p
 
-    base_speed = 100
-
-    #Ziegler-Nichols method for PID
-    Ku, Tu = 1, 1
+    
     PID_coefficients = np.array([0.6*Ku,1.2*Ku/Tu,3*Ku*Tu/40]) #[Kp, Ki, Kd]
     #adding the correction to the base_speed for the left and right motor
     correction = int(PID_coefficients*PID_errors)
