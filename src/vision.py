@@ -1,65 +1,14 @@
-from typing import Literal
-from src import model
+import operator
+from typing import Literal, Mapping
 import cv2
 import numpy as np
-import operator
+from src import model
 
-# Vision parameters
-# TODO: adjust when we have definitive board dimensions
-BOARD_DIMENSIONS = (500, 500)
+# Resolution after callibration
+TARGET_RESOLUTION = (840, 600)  # A1 sheet
 
-WARPED_GOAL = np.float32(
-    [
-        [0, 0],
-        [BOARD_DIMENSIONS[0], 0],
-        [0, BOARD_DIMENSIONS[1]],
-        [BOARD_DIMENSIONS[0], BOARD_DIMENSIONS[1]],
-    ]
-)
-
-# TODO cleanup global variables
-current_warp_coordinates = None
-
-
-def analyze_scene() -> model.World:
-    # TODO dummy data
-    return model.World(
-        robot=model.Robot(
-            position=model.Point(0, 0),
-            angle=0,
-        ),
-        goal=model.Point(0, 0),
-        obstacles=[],
-    )
-
-
-def get_robot_pose(img: np.ndarray) -> model.Robot:
-    # Filter the blue (front) and yellow (back) squares
-    mask_blue = get_color_mask(img, "blue")
-    mask_yellow = get_color_mask(img, "yellow")
-
-    # Find their centroids
-    centroid_blue = get_centroids(mask_blue)
-    centroid_yellow = get_centroids(mask_yellow)
-
-    if len(centroid_blue) != 1 or len(centroid_yellow) != 1:
-        # Failed to find the blue and yellow centroids
-        return None
-
-    # Get the coordinates of the centroids
-    x1, y1 = centroid_yellow[0]
-    x2, y2 = centroid_blue[0]
-
-    # The robot position corresponds to the center of the line between the two squares
-    x = x1 + (x2 - x1) / 2
-    y = y1 + (y2 - y1) / 2
-
-    # Compute signed angle between the y-axis and the robot's orientation
-    v = np.array([x2 - x1, y2 - y1])
-    v = v / np.linalg.norm(v)
-    alpha = -np.arctan2(-v[0], v[1])
-
-    return model.Robot(position=model.Point(x, y), angle=alpha)
+# For obstacles
+DILATE_FACTOR = 80
 
 
 def get_webcam_capture(builtin: bool) -> cv2.VideoCapture:
@@ -67,34 +16,115 @@ def get_webcam_capture(builtin: bool) -> cv2.VideoCapture:
     return cv2.VideoCapture(index)
 
 
-def calibrate_frame(img: np.ndarray) -> np.ndarray:
-    global current_warp_coordinates
-    mask = get_color_mask(img, color="red")
-    centroids = get_centroids(mask, frame=True)
-    if len(centroids) == 4:
-        current_warp_coordinates = centroids
-    return (
-        get_warped_image(img, current_warp_coordinates)
-        if current_warp_coordinates is not None
-        else img
+def analyze_scene(img: np.ndarray) -> model.World:
+    # All the algorithms assume calibrated image
+    img = calibrate(img)
+
+    # Compute pose
+    pose = get_robot_pose(img, calibrate=False)  # We already calibrated
+
+    # Compute goal
+    mask_goal = get_color_mask(img, "blue")
+    centroids = get_centroids(mask_goal)
+    if len(centroids) > 1:
+        raise Exception("More than 1 goal detected! Please calibrate colors")
+    elif len(centroids) == 0:
+        raise Exception(
+            "No goal detected! Please calibrate colors and verify goal is in view"
+        )
+    else:
+        x, y = centroids[0]
+        goal = model.Point(x, y)
+
+    # Compute obstacles
+    obstacles = []
+    mask_obstacles = get_color_mask(img, "red")
+    contours = get_polygon_contours(mask_obstacles, dilate=DILATE_FACTOR)
+    for contour in contours:
+        points = []
+        for point in contour:
+            x, y = point[0]
+            points.append(model.Point(x, y))
+        obstacles.append(points)
+
+    return model.World(
+        robot=pose,
+        goal=goal,
+        obstacles=obstacles,
     )
 
 
-def get_color_mask(
-    img: np.ndarray, color: Literal["red", "blue", "yellow"]
+def get_robot_pose(img: np.ndarray, calibrate=True) -> model.Robot:
+    if calibrate:
+        img = calibrate(img)
+    # Get aruco markers
+    markers = get_aruco_dict(img)
+    # Thymio aruco has ID 4
+    thymio_marker = markers[4]
+    return compute_robot_pose(thymio_marker)
+
+
+def calibrate(img: np.ndarray) -> np.ndarray:
+    markers = get_aruco_dict(img)
+    return get_warped_image(img, markers)
+
+
+def get_aruco_dict(img: np.ndarray) -> Mapping[int, np.ndarray]:
+    # The printed markers are 4x4 types
+    markers = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_50)
+    # Retrieve the markers and corresponding ids
+    corners, ids, _ = cv2.aruco.detectMarkers(img, markers)
+
+    # Create a mapping from aruco marker id to the corresponding corner
+    # They are wrapped in an array, therefore remove that layer by accessing first index
+    return dict([(marker[0], corner[0]) for corner, marker in zip(corners, ids)])
+
+
+def get_warped_image(
+    img: np.ndarray, corners_by_id: Mapping[int, np.ndarray]
 ) -> np.ndarray:
+    # top right, top left, bottom right, bottom left
+    id_order = [0, 2, 1, 3]
+    # Retrieve the corner coordinates
+    corners = np.float32([corners_by_id[aruco_id][0] for aruco_id in id_order])
+    # Define target
+    target_transform = get_target_transform(TARGET_RESOLUTION)
+    # Transform the image
+    transform = cv2.getPerspectiveTransform(corners, target_transform)
+    return cv2.warpPerspective(img, transform, TARGET_RESOLUTION)
+
+
+def compute_robot_pose(aruco_marker: np.ndarray) -> model.Robot:
+    # Top left corner
+    x1, y1 = aruco_marker[0]
+    # Bottom right corner
+    x2, y2 = aruco_marker[2]
+
+    # Centroid is the position of the robot
+    x = (x1 + x2) / 2
+    y = (y1 + y2) / 2
+
+    # Compute angle between y-axis and vector
+    v = np.array([x1 - x2, y1 - y2])
+    v = v / np.linalg.norm(v)
+    alpha = -np.arctan2(-v[0], v[1])
+
+    # We computed the angle of the diagonal, so add 45 degrees for correction
+    alpha -= np.pi / 4
+
+    return model.Robot(position=model.Point(x, y), angle=alpha)
+
+
+def get_color_mask(img: np.ndarray, color: Literal["red", "blue"]) -> np.ndarray:
     # Use the bounds according to given color.
     # Note that these might have to be recalibrated in different lighting conditions.
-    # TODO make these top-level file constants
+    # TODO make these top-level file constants and add calibration script
     if color == "red":
         lower_bound = np.array([130, 25, 90])
         upper_bound = np.array([180, 255, 255])
     elif color == "blue":
-        lower_bound = np.array([90, 150, 240])
-        upper_bound = np.array([180, 255, 255])
-    elif color == "yellow":
-        lower_bound = np.array([0, 60, 240])
-        upper_bound = np.array([90, 255, 255])
+        lower_bound = np.array([50, 70, 70])
+        upper_bound = np.array([110, 255, 255])
     else:
         raise Exception(f'Color "{color}" is not a valid color to filter on.')
 
@@ -107,7 +137,7 @@ def get_color_mask(
     return mask
 
 
-def get_centroids(img: np.ndarray, frame: bool = False) -> np.ndarray:
+def get_centroids(img: np.ndarray) -> np.ndarray:
     # Returns all centroids of detected contours
     # Filter color before this to extract centroids of a given color
 
@@ -117,13 +147,10 @@ def get_centroids(img: np.ndarray, frame: bool = False) -> np.ndarray:
     # Get all (external) contours
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    # Squares on the robot are smaller than the frame squares
-    min_area = 100 if frame else 20
-
     centroids = []
     for contour in contours:
         # Make sure it's not noise
-        if cv2.contourArea(contour) > min_area:
+        if cv2.contourArea(contour) > 20:
             # Compute moments for centroids
             moment = cv2.moments(contour)
             # Add small value for division by 0 errors
@@ -131,71 +158,67 @@ def get_centroids(img: np.ndarray, frame: bool = False) -> np.ndarray:
             cy = moment["m01"] / (moment["m00"] + 1e-6)
             centroids.append([cx, cy])
 
-    # If these are the centroids for a frame, sort them
-    if frame:
-        # Sort by top left, top right, bottom left, bottom right
-        centroids.sort(key=operator.itemgetter(1))
-        top = sorted(centroids[:2], key=operator.itemgetter(0))
-        bottom = sorted(centroids[2:], key=operator.itemgetter(0))
-        centroids = top + bottom
-
     return np.array(centroids)
 
 
-def get_warped_image(img: np.ndarray, centroids: np.ndarray) -> np.ndarray:
-    # Need conversion to float32 for perspectiveTransform to work
-    centroids = np.float32(centroids)
-    # Define transformation from centroids to goal
-    transform = cv2.getPerspectiveTransform(centroids, WARPED_GOAL)
-    # Warp the perspective to match board dimensions
-    return cv2.warpPerspective(img, transform, BOARD_DIMENSIONS)
+def get_polygon_contours(img: np.ndarray, dilate=0) -> np.ndarray:
+    # Returns the (approximated) contours
+    # Filter color before this to extract contours of a given color
+
+    # Dilate the shapes before finding contours
+    if dilate > 0:
+        kernel = np.ones((dilate, dilate))
+        img = cv2.dilate(img, kernel, iterations=1)
+
+    # Get all (external) contours
+    contours, _ = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # Approximate contours with polygon
+    polygons = []
+    for contour in contours:
+        # Make sure it's not noise
+        if cv2.contourArea(contour) > 20:
+            approximation = cv2.approxPolyDP(contour, 10, True)
+            polygons.append(approximation)
+    return polygons
 
 
-def main():
-
-    source = get_webcam_capture(builtin=False)
-
-    cv2.namedWindow("Original")
-    cv2.namedWindow("Result")
-
-    while True:
-
-        _, frame = source.read()
-        warped = calibrate_frame(frame)
-        pose = get_robot_pose(warped)
-
-        # Draw the pose
-        if pose is not None:
-            position = np.int32([pose.position.x, pose.position.y])
-
-            alpha = pose.angle
-            direction_vector = np.array([-np.sin(-alpha), np.cos(-alpha)])
-
-            cv2.circle(
-                warped,
-                position,
-                2,
-                (0, 0, 255),
-                thickness=4,
-            )
-            cv2.arrowedLine(
-                warped,
-                position,
-                position + np.int32(100 * direction_vector),
-                (0, 0, 255),
-                2,
-            )
-
-        cv2.imshow("Original", frame)
-        cv2.imshow("Result", warped)
-
-        # Press q to quit
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            break
-
-    source.release()
-    cv2.destroyAllWindows()
+def get_target_transform(resolution) -> np.ndarray:
+    # Has to be float32 for perspectiveTransform
+    return np.float32(
+        [
+            [0, 0],
+            [resolution[0], 0],
+            [0, resolution[1]],
+            [resolution[0], resolution[1]],
+        ]
+    )
 
 
-if __name__ == "__main__":
-    main()
+def draw_world(img: np.ndarray, world: model.World):
+    # Draw a green circle at the goal
+    cv2.circle(img, np.int32(world.goal.v), 4, (0, 255, 0), 2)
+
+    # Convert obstacle points to contours
+    contours = []
+    for obstacle in world.obstacles:
+        contour = []
+        for point in obstacle:
+            contour.append([point.v])
+        contours.append(np.array(contour))
+    # Draw blue contours for obstacles
+    cv2.drawContours(img, contours, -1, (255, 0, 0))
+
+    # Draw robot position and orientation
+    # Convert to array for drawing
+    position = np.int32(world.robot.position.v)
+
+    # Compute direction vector for drawing
+    alpha = world.robot.angle
+    direction_vector = np.array([-np.sin(-alpha), np.cos(-alpha)])
+
+    # Draw a circle at the detected position
+    cv2.circle(img, position, 4, color=(0, 255, 255), thickness=8)
+    cv2.arrowedLine(
+        img, position, position + np.int32(100 * direction_vector), (0, 0, 255), 2
+    )
