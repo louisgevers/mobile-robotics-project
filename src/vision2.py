@@ -100,6 +100,28 @@ def get_centroids(img: np.ndarray) -> np.ndarray:
     return np.array(centroids)
 
 
+def get_polygon_contours(img: np.ndarray, dilate=0) -> np.ndarray:
+    # Returns the (approximated) contours
+    # Filter color before this to extract contours of a given color
+
+    # Dilate the shapes before finding contours
+    if dilate > 0:
+        kernel = np.ones((dilate, dilate))
+        img = cv2.dilate(img, kernel, iterations=1)
+
+    # Get all (external) contours
+    contours, _ = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # Approximate contours with polygon
+    polygons = []
+    for contour in contours:
+        # Make sure it's not noise
+        if cv2.contourArea(contour) > 20:
+            approximation = cv2.approxPolyDP(contour, 10, True)
+            polygons.append(approximation)
+    return polygons
+
+
 def get_target_transform(resolution) -> np.ndarray:
     # Has to be float32 for perspectiveTransform
     return np.float32(
