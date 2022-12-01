@@ -1,4 +1,5 @@
-from typing import Mapping
+import operator
+from typing import Literal, Mapping
 import cv2
 import numpy as np
 from src import model
@@ -51,6 +52,52 @@ def compute_robot_pose(aruco_marker: np.ndarray) -> model.Robot:
     alpha -= np.pi / 4
 
     return model.Robot(position=model.Point(x, y), angle=alpha)
+
+
+def get_color_mask(img: np.ndarray, color: Literal["red", "blue"]) -> np.ndarray:
+    # Use the bounds according to given color.
+    # Note that these might have to be recalibrated in different lighting conditions.
+    # TODO make these top-level file constants and add calibration script
+    if color == "red":
+        lower_bound = np.array([130, 25, 90])
+        upper_bound = np.array([180, 255, 255])
+    elif color == "blue":
+        lower_bound = np.array([50, 70, 70])
+        upper_bound = np.array([110, 255, 255])
+    else:
+        raise Exception(f'Color "{color}" is not a valid color to filter on.')
+
+    # Blur the image to get rid of noise
+    blur = cv2.GaussianBlur(img, (15, 15), 0)
+    # Convert to HSV color space
+    hsv_img = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
+    # Filter pixels in the chosen color range
+    mask = cv2.inRange(hsv_img, lower_bound, upper_bound)
+    return mask
+
+
+def get_centroids(img: np.ndarray) -> np.ndarray:
+    # Returns all centroids of detected contours
+    # Filter color before this to extract centroids of a given color
+
+    # Use Canny edge detection
+    edges = cv2.Canny(img, 100, 100)
+
+    # Get all (external) contours
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    centroids = []
+    for contour in contours:
+        # Make sure it's not noise
+        if cv2.contourArea(contour) > 20:
+            # Compute moments for centroids
+            moment = cv2.moments(contour)
+            # Add small value for division by 0 errors
+            cx = moment["m10"] / (moment["m00"] + 1e-6)
+            cy = moment["m01"] / (moment["m00"] + 1e-6)
+            centroids.append([cx, cy])
+
+    return np.array(centroids)
 
 
 def get_target_transform(resolution) -> np.ndarray:
