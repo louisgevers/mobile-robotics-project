@@ -4,17 +4,18 @@ import math
 
 TRESHOLD_IR_SENSOR = 900
 TURN_SPEED = 50
-
+DELTA_ANGLE_SENSOR = 80/5 #angle between distance sensors (in degree)
 def set_motor_speed(th : thymio.Thymio, speed : model.MotorSpeed):
     command = speed
     th.process_command(command)
+    return
 
 def avoid_obstacle(th : thymio.Thymio):
     sensor_data = th.read_sensor_data()
     pos_data = th.read_robot_position()
-    last_speed_l = th.read_sensor_data().motor.left
-    last_speed_r = th.read_sensor_data().motor.right
-    last_speed = (last_speed_l+last_speed_r)/2
+    last_speed_l = th.read_sensor_data()
+    last_speed_r = th.read_sensor_data()
+    last_speed = (float(last_speed_l.motor.left)+float(last_speed_r.motor.right))/2 #problem here
     time.sleep(0.1)
     while sees_obstacle(sensor_data):
         sensor_data = th.read_sensor_data()
@@ -38,10 +39,10 @@ def avoid_obstacle(th : thymio.Thymio):
                 set_motor_speed(th,calculate_speed(0,0))
                 break
             time.sleep(0.1)
-    pass
+    return
 
 def get_angle(sensor_data: model.SensorReading) -> float:
-    alpha = 80/5*math.pi/180
+    alpha = DELTA_ANGLE_SENSOR*math.pi/180
     alpha_array =  [-2*alpha,1*alpha,0,1*alpha,2*alpha]
     tmp1 = 0
     tmp2 = 10e-7
@@ -60,7 +61,7 @@ def get_array(sensor_data: model.SensorReading):
     return [tmp.left,tmp.center_left,tmp.center,tmp.center_right,tmp.right]
 
 def sees_obstacle(sensor_data: model.SensorReading) -> bool:
-    if any(get_array(sensor_data)>TRESHOLD_IR_SENSOR) :
+    if any(get_array(sensor_data))>TRESHOLD_IR_SENSOR: #problem here
         return True
     return False
 
