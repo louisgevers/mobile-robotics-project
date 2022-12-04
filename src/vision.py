@@ -1,4 +1,3 @@
-import operator
 from typing import Literal, Mapping
 import cv2
 import numpy as np
