@@ -9,6 +9,12 @@ TARGET_RESOLUTION = (840, 600)  # A1 sheet
 # For obstacles
 DILATE_FACTOR = 80
 
+# Keep last warp coordinates
+last_warp_coordinates = None
+
+# Keep last robot position
+last_robot_position = None
+
 
 def get_webcam_capture(builtin: bool) -> cv2.VideoCapture:
     index = 0 if builtin else 2
@@ -20,7 +26,7 @@ def analyze_scene(img: np.ndarray) -> model.World:
     img = calibrate(img)
 
     # Compute pose
-    pose = get_robot_pose(img, calibrate=False)  # We already calibrated
+    pose = get_robot_pose(img, should_calibrate=False)  # We already calibrated
 
     # Compute goal
     mask_goal = get_color_mask(img, "blue")
@@ -53,14 +59,20 @@ def analyze_scene(img: np.ndarray) -> model.World:
     )
 
 
-def get_robot_pose(img: np.ndarray, calibrate=True) -> model.Robot:
-    if calibrate:
+def get_robot_pose(img: np.ndarray, should_calibrate=True) -> model.Robot:
+    # TODO make this a class
+    global last_robot_position
+    if should_calibrate:
         img = calibrate(img)
     # Get aruco markers
     markers = get_aruco_dict(img)
     # Thymio aruco has ID 4
-    thymio_marker = markers[4]
-    return compute_robot_pose(thymio_marker)
+    if 4 in markers:
+        thymio_marker = markers[4]
+        last_robot_position = compute_robot_pose(thymio_marker)
+    else:
+        print("Warning: could not find robot pose!")
+    return last_robot_position
 
 
 def calibrate(img: np.ndarray) -> np.ndarray:
@@ -74,6 +86,9 @@ def get_aruco_dict(img: np.ndarray) -> Mapping[int, np.ndarray]:
     # Retrieve the markers and corresponding ids
     corners, ids, _ = cv2.aruco.detectMarkers(img, markers)
 
+    if corners is None or ids is None:
+        return {}
+
     # Create a mapping from aruco marker id to the corresponding corner
     # They are wrapped in an array, therefore remove that layer by accessing first index
     return dict([(marker[0], corner[0]) for corner, marker in zip(corners, ids)])
@@ -82,10 +97,22 @@ def get_aruco_dict(img: np.ndarray) -> Mapping[int, np.ndarray]:
 def get_warped_image(
     img: np.ndarray, corners_by_id: Mapping[int, np.ndarray]
 ) -> np.ndarray:
+    # TODO make a class
+    global last_warp_coordinates
     # top right, top left, bottom right, bottom left
     id_order = [0, 2, 1, 3]
-    # Retrieve the corner coordinates
-    corners = np.float32([corners_by_id[aruco_id][0] for aruco_id in id_order])
+    if all([aruco_id in corners_by_id for aruco_id in id_order]):
+        # Retrieve the corner coordinates
+        corners = np.float32([corners_by_id[aruco_id][0] for aruco_id in id_order])
+        last_warp_coordinates = corners
+    elif last_warp_coordinates is not None:
+        # Use previous
+        corners = last_warp_coordinates
+    else:
+        # Cannot transform
+        print("Warning: could not calibrate image!")
+        return img
+
     # Define target
     target_transform = get_target_transform(TARGET_RESOLUTION)
     # Transform the image

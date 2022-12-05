@@ -24,6 +24,7 @@ class Thymio:
         t.start()
         # Wait a bit for initialization
         time.sleep(1)
+        self.kill_lamps()
 
     def _start(self):
         """
@@ -63,10 +64,28 @@ class Thymio:
         if self._node is None:
             raise "Node has not been initialized before starting robot command"
         variables = {
-            "motor.left.target": [command.left],
-            "motor.right.target": [command.right],
+            "motor.left.target": [int(command.left)],
+            "motor.right.target": [int(command.right)],
         }
         aw(self._node.set_variables(variables))
+
+    def kill_lamps(self):
+        aw(
+            self._node.set_variables(
+                {
+                    "leds.top": [0, 0, 0],
+                    # "leds.prox.h": [0, 0, 0, 0, 0, 0, 0, 0],
+                    # "leds.prox.v": [0, 0],
+                    # "leds.buttons": [0, 0, 0, 0],
+                    # "leds.rc": [0, 0],
+                    # "leds.circle": [0, 0, 0, 0, 0, 0, 0, 0],
+                    # "leds.bottom.left": [0, 0, 0],
+                    # "leds.bottom.right": [0, 0, 0],
+                    # "leds.temperature": [0, 0],
+                    # "leds.sound": [0],
+                }
+            )
+        )
 
     def read_sensor_data(self) -> model.SensorReading:
         """
@@ -91,9 +110,9 @@ class Thymio:
         """
         if self._node is None:
             raise "Node has not been initialized before starting robot command"
-        #position = #I have no idea how to get this data 
-        #angle = #I have no idea how to get this data 
+        # position = #I have no idea how to get this data
+        # angle = #I have no idea how to get this data
         return model.Robot(
-            position = model.Point(0.,0.),
-            angle = 0.,
+            position=model.Point(0.0, 0.0),
+            angle=0.0,
         )

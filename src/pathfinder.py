@@ -11,7 +11,7 @@ def find_path(world: model.World) -> Sequence[model.Point]:
         polygons.append(polygon)
     # 2. Compute the visibility graph
     graph = vg.VisGraph()
-    graph.build(polygons)
+    graph.build(polygons, status=False)
     # 3. Convert start and end points for the visibility graph library
     start = convert_to_vg_point(world.robot.position)
     end = convert_to_vg_point(world.goal)
