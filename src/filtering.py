@@ -10,7 +10,7 @@ def update_robot(
 ):
     
     
-    x,P=states.Kalmanfilter([command.left,command.right],np.concatenate(robot.position,robot.angle,sensors.motor.left,sensors.motor.right),True)
+    x,P=states.Kalmanfilter(np.array([command.left,command.right]),np.array([sensors.motor.left,sensors.motor.right]),np.array([robot.position.x,robot.position.y,robot.angle]),True)
     robot.position.x=x[0]
     robot.position.y=x[1]
     robot.angle=x[2]
@@ -36,7 +36,6 @@ class filter:
     def Kalmanfilter(self,u,speed,camerapos,camera=False):
         #x=[x,y,theta,xdot,thetadot]
         #u=[vl,vr]
-        
         udiff=u-self.u_prev
         self.u_prev=u
         # print(udiff)
@@ -108,5 +107,5 @@ else:
     i=2
 x=[]
 def initialise(initialposition,initialangle):
-    y=filter(np.concatenate(initialposition,initialangle,0,0),np.zeros((5,5)),measvar*np.eye(i),statevar,0.1)
+    y=filter(np.concatenate((initialposition,[initialangle],[0,0])),np.zeros((5,5)),measvar*np.eye(i),statevar,0.1)
     return y
