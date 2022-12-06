@@ -56,9 +56,9 @@ class filter:
         x_pred=A@x+B@udiff
         # print(A@x)
         # print(x_pred)
-        G=np.array([[1,0,-0.5*self.T*np.sin(theta)*x[3],0.5*np.cos(theta)*self.T,0],
-           [0,1,0.5*self.T*np.cos(theta)*x[4],0.5*np.sin(theta)*self.T,0],
-           [0,0,1,0,self.T*0.5/self.L],
+        G=np.array([[1,0,-self.T*np.sin(theta)*x[3],np.cos(theta)*self.T,0],
+           [0,1,self.T*np.cos(theta)*x[4],np.sin(theta)*self.T,0],
+           [0,0,1,0,self.T*/self.L],
            [0,0,0,1,0],
            [0,0,0,0,1]])
         # print(G)
