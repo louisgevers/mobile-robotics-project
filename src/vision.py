@@ -42,16 +42,24 @@ class WebcamSource(FrameSource):
         Args:
             builtin (bool): Whether to use the laptop webcam.
         """
-        index = 0 if builtin else 2
-        self.source = cv2.VideoCapture(index)
+        self.builtin = builtin
 
     def get_frame(self) -> np.ndarray:
-        _, frame = self.source.read()
+        index = 0 if self.builtin else 2
+        cap = cv2.VideoCapture(index)
+        _, frame = cap.read()
+        cap.release()
         return frame
 
 
 @dataclass
 class HSVBound:
+    """
+    Determines the upper and lower bounds for HSV filtering.
+    Each bound should be an numpy array of three elements corresponding
+    to the H, S, and V value respectively.
+    """
+
     lb: np.ndarray
     ub: np.ndarray
 
@@ -60,6 +68,15 @@ class VisionTools:
     def __init__(
         self, aruco_dict=cv2.aruco.DICT_4X4_50, target_resolution=(840, 600)
     ) -> None:
+        """
+        Collection of utility functions for the vision pipeline. This class encapsulates
+        some state variables such as the latest warp coordinates to handle cases where
+        features are dropped from certain frames for robustness.
+
+        Args:
+            aruco_dict (int, optional): The type of aruco markers. Defaults to cv2.aruco.DICT_4X4_50.
+            target_resolution (tuple, optional): Target resolution after callibration. Defaults to (840, 600).
+        """
         self.aruco_dict = cv2.aruco.Dictionary_get(aruco_dict)
         self.target_resolution = target_resolution
         self.target_transform = np.float32(
@@ -73,6 +90,15 @@ class VisionTools:
         self.latest_warp_coordinates = None
 
     def get_aruco_markers(self, img: np.ndarray):
+        """
+        Returns the detected aruco corners and ids from the image.
+
+        Args:
+            img (np.ndarray): Image to detect the aruco markers from.
+
+        Returns:
+            tuple: Tuple of aruco corners and ids
+        """
         corners, ids, _ = cv2.aruco.detectMarkers(img, self.aruco_dict)
         return corners, ids
 
