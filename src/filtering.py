@@ -92,7 +92,7 @@ class filter:
         self.x.append(x_est.tolist())
         self.P.append(P_est.tolist())
         return x_est,P_est
-
+R=np.eye(5)
 L=1
 picture=True
 thetadotvar=0.6
