@@ -17,7 +17,7 @@ class filter:
         self.R=R
         self.Q=Q
         self.u_prev=np.array([0,0])
-        
+        self.speedconv=0.434782608
         
     def parameter(self,coord_ini,coord_end, orientation_ini, orientation_end):
         a=1
@@ -55,7 +55,7 @@ class filter:
         
         B=np.zeros((5,2))
         B[3:]=[[1,1],[-1,1]]
-        B=0.5*B
+        B=self.speedconv*0.5*B
         # print(B)
         x_pred=A@x+B@udiff
         # print(A@x)
@@ -74,12 +74,12 @@ class filter:
             # print(camerapos,speed)
             measurement=np.append(camerapos,speed)
             M=np.eye(5)
-            M[3:,3:]=0.5*np.array([[1,1],[-1,1]])
+            M[3:,3:]=self.speedconv*0.5*np.array([[1,1],[-1,1]])
             C=np.eye(5)
         else:
             measurement=speed
             M=[[0.5,0.5],[-0.5,0.5]]
-            C=np.concatenate((np.zeros((2,3)),np.eye(2)),axis=1)
+            C=self.speedconv*np.concatenate((np.zeros((2,3)),np.eye(2)),axis=1)
         y=M@measurement
         K=P_new@C.T@(np.linalg.inv(C@P_new@C.T+self.Q))
         # C=np.concatenate((np.zeros((2,3)),np.eye(2)),axis=1)
@@ -97,12 +97,14 @@ class filter:
         return x_est,P_est
 R=np.eye(5)
 # R[3:,3:]=np.zeros((2,2))
+L=1
 picture=True
-speedvar=2
+thetadotvar=0.6
+speedvar=6.15
 posvar=0.1
 thetavar=0.01
-measvar=0.1
-statevar=0.2
+measvar=np.diag([0.02,0.02,0.02/L,6.15,6.15/L])
+statevar=np.diag([posvar,posvar,thetavar,speedvar,speedvar/L])
 iter=30
 if picture:
     i=5
@@ -111,7 +113,7 @@ else:
     i=2
 x=[]
 y=filter([0,0,0,0,0],np.zeros((5,5)),measvar*np.eye(i),statevar*R,0.1)
-speeds=np.array([12,12])
+speeds=np.array([50,50])
 coord=np.array([0,0,0])
 for i in range(iter):
     xnext,Pnext=y.Kalmanfilter(speeds,np.random.normal(speeds,[speedvar,speedvar]),coord,picture)
@@ -120,14 +122,14 @@ for i in range(iter):
     x.append(xnext.tolist())
     # print(xnext)
     # print(Pnext)
-speeds=np.array([11,-11])
+speeds=np.array([40,-40])
 for i in range(iter):
     xnext,Pnext=y.Kalmanfilter(speeds,np.random.normal(speeds,[speedvar,speedvar]),coord,picture)
     coord=np.random.normal(xnext[:3],[posvar,posvar,thetavar])
     
     x.append(xnext.tolist())
     # print(Pnext)
-speeds=np.array([18,9])
+speeds=np.array([60,40])
 for i in range(iter):
     xnext,Pnext=y.Kalmanfilter(speeds,np.random.normal(speeds,[speedvar,speedvar]),coord,picture)
     coord=np.random.normal(xnext[:3],[posvar,posvar,thetavar])
@@ -138,5 +140,3 @@ x=np.array(x)
 print(x)
 plt.plot(x[:,0],x[:,1])
 plt.show()
-
-    
