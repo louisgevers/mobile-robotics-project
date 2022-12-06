@@ -3,6 +3,52 @@ import cv2
 import numpy as np
 from src import model
 
+
+class FrameSource:
+    """
+    Interface for retrieving a frame for vision.
+    """
+
+    def get_frame(self) -> np.ndarray:
+        """
+        Returns the frame from retrieved from the source.
+
+        Returns:
+            np.ndarray: OpenCV image
+        """
+        pass
+
+
+class ImageSource(FrameSource):
+    def __init__(self, path: str) -> None:
+        """
+        Uses an image at the provided path as source for vision.
+
+        Args:
+            path (str): Path of the image
+        """
+        self.path = path
+
+    def get_frame(self) -> np.ndarray:
+        return cv2.imread(self.path)
+
+
+class WebcamSource(FrameSource):
+    def __init__(self, builtin: bool) -> None:
+        """
+        Uses a webcam as source of frames.
+
+        Args:
+            builtin (bool): Whether to use the laptop webcam.
+        """
+        index = 0 if builtin else 2
+        self.source = cv2.VideoCapture(index)
+
+    def get_frame(self) -> np.ndarray:
+        _, frame = self.source.read()
+        return frame
+
+
 # Resolution after callibration
 TARGET_RESOLUTION = (840, 600)  # A1 sheet
 
