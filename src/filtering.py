@@ -4,6 +4,11 @@ from src import model
 import random
 import numpy as np
 import matplotlib.pyplot as plt
+
+def update_robot(
+    robot: model.Robot, command: model.MotorSpeed, sensors: model.SensorReading
+):
+    pass
 class filter:
     def __init__(self,x0,P0,Q,R,T):
         
@@ -95,48 +100,4 @@ class filter:
         self.x.append(x_est.tolist())
         self.P.append(P_est.tolist())
         return x_est,P_est
-R=np.eye(5)
-# R[3:,3:]=np.zeros((2,2))
-L=1
-picture=True
-thetadotvar=0.6
-speedvar=6.15
-posvar=0.1
-thetavar=0.01
-measvar=np.diag([0.02,0.02,0.02/L,6.15,6.15/L])
-statevar=np.diag([posvar,posvar,thetavar,speedvar,speedvar/L])
-iter=30
-if picture:
-    i=5
-    
-else:
-    i=2
-x=[]
-y=filter([0,0,0,0,0],np.zeros((5,5)),measvar*np.eye(i),statevar*R,0.1)
-speeds=np.array([50,50])
-coord=np.array([0,0,0])
-for i in range(iter):
-    xnext,Pnext=y.Kalmanfilter(speeds,np.random.normal(speeds,[speedvar,speedvar]),coord,picture)
-    coord=np.random.normal(xnext[:3],[posvar,posvar,thetavar])
-        
-    x.append(xnext.tolist())
-    # print(xnext)
-    # print(Pnext)
-speeds=np.array([40,-40])
-for i in range(iter):
-    xnext,Pnext=y.Kalmanfilter(speeds,np.random.normal(speeds,[speedvar,speedvar]),coord,picture)
-    coord=np.random.normal(xnext[:3],[posvar,posvar,thetavar])
-    
-    x.append(xnext.tolist())
-    # print(Pnext)
-speeds=np.array([60,40])
-for i in range(iter):
-    xnext,Pnext=y.Kalmanfilter(speeds,np.random.normal(speeds,[speedvar,speedvar]),coord,picture)
-    coord=np.random.normal(xnext[:3],[posvar,posvar,thetavar])
-    
-    x.append(xnext.tolist())
-    # print(Pnext[1,0])
-x=np.array(x)
-print(x)
-plt.plot(x[:,0],x[:,1])
-plt.show()
+
