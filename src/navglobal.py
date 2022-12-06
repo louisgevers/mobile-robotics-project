@@ -6,9 +6,9 @@ import numpy as np
 # initialized values
 PID_errors = np.zeros((3, 1))
 # reference speed
-max_speed = 255
+max_speed = 100
 # Ziegler-Nichols method for PID
-Ku, Tu = 1, 1
+Ku, Tu = 0.8, 0.1
 PID_coefficients = np.array([0.6 * Ku, 1.2 * Ku / Tu, 3 * Ku * Tu / 40])  # [Kp, Ki, Kd]
 
 
@@ -26,10 +26,10 @@ def follow_path(robot: model.Robot, path: Sequence[model.Point]) -> model.MotorS
     if index + 1 >= len(path) - 1:
         PathPosH, PathPosL = len(path) - 1, len(path) - 2
     p1 = np.array(
-        [path[index].x, path[index].y]
+        [path[PathPosL].x, path[PathPosL].y]
     )  # previous correct position on the path
     p2 = np.array(
-        [path[index + 1].x, path[index + 1].y]
+        [path[PathPosH].x, path[PathPosH].y]
     )  # previous correct position on the path
     p3 = np.array([robot.position.x, robot.position.y])  # array of the robot position
 
@@ -45,8 +45,8 @@ def follow_path(robot: model.Robot, path: Sequence[model.Point]) -> model.MotorS
     # PID correction
     PID_errors[0], PID_errors[1], PID_errors[2] = (
         error,
-        PID_errors[1] + error,
-        error - PID_errors[0],
+        0,  # PID_errors[1] + error,
+        0,  # error - PID_errors[0],
     )
     # basically it does what is below
     # proportional, p = error
@@ -59,19 +59,19 @@ def follow_path(robot: model.Robot, path: Sequence[model.Point]) -> model.MotorS
 
     # checking the direction of the robot to reduce the speed of the closest motor engine to the correct path
     if robot.angle > 0 and robot.angle < np.pi:
-        if error > 0:
+        if error < 0:
             rspeed = max_speed - correction
-            lspeed = max_speed
+            lspeed = max_speed + correction
         else:
-            rspeed = max_speed
+            rspeed = max_speed + correction
             lspeed = max_speed - correction
     else:
-        if error > 0:
-            rspeed = max_speed
+        if error < 0:
+            rspeed = max_speed + correction
             lspeed = max_speed - correction
         else:
             rspeed = max_speed - correction
-            lspeed = max_speed
+            lspeed = max_speed + correction
 
     # restricting speed of motors between 255 and -255
     # not necessary for the first two conditions but still in the project just for safety
