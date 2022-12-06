@@ -4,12 +4,36 @@ import time
 import numpy as np
 
 # initialized values
-PID_errors = np.zeros((3, 1))
+
 # reference speed
 max_speed = 100
+
 # Ziegler-Nichols method for PID
-Ku, Tu = 0.8, 0.1
-PID_coefficients = np.array([0.6 * Ku, 1.2 * Ku / Tu, 3 * Ku * Tu / 40])  # [Kp, Ki, Kd]
+
+# position
+PID_errors_position = np.zeros((3, 1))
+
+# ====
+# For Louis : here you can change Ku & Tu (you can see in PID_coefficients_position how it impacts the coefficients)
+# high Ku, it will converge faster / too high, you will oscillate
+# normally, you won't have to touch Tu because we only use a proportional coefficient (it's enough)
+# ===
+Ku_position, Tu_position = 0.8, 100
+PID_coefficients_position = np.array([0.6 * Ku_position, 1.2 * Ku_position / Tu_position, 3 * Ku_position * Tu_position / 40])  # [Kp, Ki, Kd]
+
+#angle
+PID_errors_angle = np.zeros((3, 1))
+
+# ====
+# For Louis : same as for position
+# # ===
+Ku_angle, Tu_angle = 0.8, 100
+PID_coefficients_angle = np.array([0.6 * Ku_angle, 1.2 * Ku_angle / Tu_angle, 3 * Ku_angle * Tu_angle / 40])  # [Kp, Ki, Kd]
+
+# collective PID
+sensibility_angle = np.pi/8
+PID_weight_angle_position = np.array([0.75, 0.25])
+correction = np.zeros((4, 1))
 
 
 def follow_path(robot: model.Robot, path: Sequence[model.Point]) -> model.MotorSpeed:
@@ -33,48 +57,73 @@ def follow_path(robot: model.Robot, path: Sequence[model.Point]) -> model.MotorS
     )  # previous correct position on the path
     p3 = np.array([robot.position.x, robot.position.y])  # array of the robot position
 
-    d = abs(np.cross(p2 - p1, p3 - p1) / np.linalg.norm(p2 - p1))
+
+    # PID on the position
+    # -------------------
+    error_position = abs(np.cross(p2 - p1, p3 - p1) / np.linalg.norm(p2 - p1))
 
     # error > 0 robot over the correct path
-    # error > à robot below the correct path
+    # error < 0 robot below the correct path
     if p3[1] >= p1[1] or p3[1] >= p2[1]:
-        error = d  # error of position
+        correction[0] = -1
     else:
-        error = -d
+        correction[0] = +1
 
-    # PID correction
-    PID_errors[0], PID_errors[1], PID_errors[2] = (
-        error,
-        0,  # PID_errors[1] + error,
-        0,  # error - PID_errors[0],
+
+    # PID correction for position
+    PID_errors_position[0], PID_errors_position[1], PID_errors_position[2] = (
+        error_position,
+        0,  # PID_errors[1] + error_position,
+        0,  # error_position - PID_errors[0],
     )
     # basically it does what is below
-    # proportional, p = error
+    # proportional, p = error_position
     # integrator, i += p
     # derivative, d = p - lp
-    # update previous error, lp = p
+    # update previous error_position, lp = p
 
-    # adding the correction to the base_speed for the left and right motor
-    correction = np.dot(PID_coefficients, PID_errors)
 
-    # checking the direction of the robot to reduce the speed of the closest motor engine to the correct path
-    if robot.angle > 0 and robot.angle < np.pi:
-        if error < 0:
-            rspeed = max_speed - correction
-            lspeed = max_speed + correction
-        else:
-            rspeed = max_speed + correction
-            lspeed = max_speed - correction
+    correction[1] = np.dot(PID_coefficients_position, PID_errors_position)
+
+
+    # PID on the angle
+    # ----------------
+    error_angle = robot.angle - np.arctan((p2[1]-p1[1])/(p2[0]-p1[0]))
+    if error_angle>=0:
+        correction[0] = -1
     else:
-        if error < 0:
-            rspeed = max_speed + correction
-            lspeed = max_speed - correction
+        correction[0] = +1
+
+
+        # PID correction for angle
+    PID_errors_angle[0], PID_errors_angle[1], PID_errors_angle[2] = (
+        error_angle,
+        0,  # PID_errors[1] + error_angle,
+        0,  # error_angle - PID_errors[0],
+    )
+
+    correction[3] = np.dot(PID_coefficients_angle, PID_errors_angle)
+
+
+    #if error_angle is too high, priority to correct the angle first
+    if abs(error_angle) > sensibility_angle:
+        if error_angle>0:
+            rspeed = -255
+            lspeed = 255
         else:
-            rspeed = max_speed - correction
-            lspeed = max_speed + correction
+            rspeed = -255
+            lspeed = 255
+    else:
+        # correction sent to the robot
+        if robot.angle > 0 and robot.angle < np.pi:
+            rspeed = max_speed + correction[0]*correction[1]*PID_weight_angle_position[1] + correction[2]*correction[3]*PID_weight_angle_position[0]
+            lspeed = max_speed - correction[0]*correction[1]*PID_weight_angle_position[1] - correction[2]*correction[3]*PID_weight_angle_position[0]
+        else:
+            rspeed = max_speed - correction[0]*correction[1]*PID_weight_angle_position[1] - correction[2]*correction[3]*PID_weight_angle_position[0]
+            lspeed = max_speed + correction[0]*correction[1]*PID_weight_angle_position[1] + correction[2]*correction[3]*PID_weight_angle_position[0]
+
 
     # restricting speed of motors between 255 and -255
-    # not necessary for the first two conditions but still in the project just for safety
     if rspeed > 255:
         rspeed = 255
     if lspeed > 255:
