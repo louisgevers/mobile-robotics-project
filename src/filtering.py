@@ -50,8 +50,8 @@ class filter:
 
         
         B=np.zeros((5,2))
-        B[3:]=[[1,1],[-1,1]]
-        B=self.speedconv*0.5*B
+        B[3:]=[[0.5,0.5],[-1/L,1/L]]
+        B=self.speedconv*B
         # print(B)
         x_pred=A@x+B@udiff
         # print(A@x)
@@ -70,12 +70,12 @@ class filter:
             # print(camerapos,speed)
             measurement=np.append(camerapos,speed)
             M=np.eye(5)
-            M[3:,3:]=self.speedconv*0.5*np.array([[1,1],[-1,1]])
+            M[3:,3:]=self.speedconv*np.array([[0.5,0.5],[-1/L,1/L]])
             C=np.eye(5)
         else:
             measurement=speed
-            M=[[0.5,0.5],[-0.5,0.5]]
-            C=self.speedconv*np.concatenate((np.zeros((2,3)),np.eye(2)),axis=1)
+            M=self.speedconv*np.array([[0.5,0.5],[-1/L,1/L]])
+            C=np.concatenate((np.zeros((2,3)),np.eye(2)),axis=1)
         y=M@measurement
         K=P_new@C.T@(np.linalg.inv(C@P_new@C.T+self.Q))
         # C=np.concatenate((np.zeros((2,3)),np.eye(2)),axis=1)
@@ -96,9 +96,9 @@ L=150
 picture=True
 thetadotvar=0.6
 speedvar=6.15
-posvar=0.1
+posvar=2
 thetavar=0.01
-measvar=np.diag([0.02,0.02,0.02/L,6.15,6.15/L])
+measvar=np.diag([2,2,2/L,6.15,6.15/L])
 statevar=np.diag([posvar,posvar,thetavar,speedvar,speedvar/L])
 iter=30
 if picture:
