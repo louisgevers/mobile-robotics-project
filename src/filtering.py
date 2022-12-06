@@ -24,7 +24,7 @@ class filter:
         self.T=T
         self.speed=[]
         self.camerapos=[]
-        self.L=1
+        self.L=150
         self.R=R
         self.Q=Q
         self.u_prev=np.array([0,0])
@@ -92,7 +92,7 @@ class filter:
         self.P.append(P_est.tolist())
         return x_est,P_est
 R=np.eye(5)
-L=1
+L=150
 picture=True
 thetadotvar=0.6
 speedvar=6.15
