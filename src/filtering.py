@@ -15,6 +15,16 @@ def update_robot(
     robot.position.y=x[1]
     robot.angle=x[2]
     
+def initialise(initialposition,initialangle):
+    L=150
+    thetadotvar=0.6
+    speedvar=6.15
+    posvar=2
+    thetavar=0.01
+    measvar=np.diag([2,2,2/L,6.15,6.15/L])
+    statevar=np.diag([posvar,posvar,thetavar,speedvar,speedvar/L])
+    y=filter(np.concatenate((initialposition,[initialangle],[0,0])),np.zeros((5,5)),measvar,statevar,0.1)
+    return y
 class filter:
     def __init__(self,x0,P0,Q,R,T):
         
@@ -91,21 +101,5 @@ class filter:
         self.x.append(x_est.tolist())
         self.P.append(P_est.tolist())
         return x_est,P_est
-R=np.eye(5)
-L=150
-picture=True
-thetadotvar=0.6
-speedvar=6.15
-posvar=2
-thetavar=0.01
-measvar=np.diag([2,2,2/L,6.15,6.15/L])
-statevar=np.diag([posvar,posvar,thetavar,speedvar,speedvar/L])
-iter=30
-if picture:
-    i=5
-else:
-    i=2
-x=[]
-def initialise(initialposition,initialangle):
-    y=filter(np.concatenate((initialposition,[initialangle],[0,0])),np.zeros((5,5)),measvar*np.eye(i),statevar,0.1)
-    return y
+
+
