@@ -3,10 +3,10 @@ import time
 import math
 import numpy as np
 
-TRESHOLD_IR_SENSOR = 900
+TRESHOLD_IR_SENSOR = 1100
 TURN_SPEED = 150
 DELTA_ANGLE_SENSOR = 80 / 5  # angle between distance sensors (in degree)
-
+##### There is still the problem where the robot takes very little steps when an object is on the left, still searching for the origin.
 
 def set_motor_speed(th: thymio.Thymio, speed: model.MotorSpeed):
     command = speed
@@ -19,10 +19,7 @@ def avoid_obstacle(th: thymio.Thymio, robot_position):
     pos_data = robot_position()
     last_speed_l = th.read_sensor_data()
     last_speed_r = th.read_sensor_data()
-    last_speed = 100
-    # last_speed = (
-    #     float(last_speed_l.motor.left) + float(last_speed_r.motor.right)
-    # ) / 2  # problem here
+    last_speed = 100 #set last speed, shoud be last know speed unless it's the start
     time.sleep(0.1)
     while sees_obstacle(sensor_data):
         sensor_data = th.read_sensor_data()
@@ -42,13 +39,12 @@ def avoid_obstacle(th: thymio.Thymio, robot_position):
                 set_motor_speed(
                     th, calculate_speed(last_speed, -TURN_SPEED)
                 )  # try different values
-
             else:
                 set_motor_speed(
                     th, calculate_speed(last_speed, TURN_SPEED)
                 )  # try different values
             if sum_angle >= angle:
-                set_motor_speed(th, calculate_speed(last_speed, 0))
+                set_motor_speed(th, calculate_speed(last_speed, 0)) #stop turning
                 break
     return
 
@@ -78,12 +74,12 @@ def get_array(sensor_data: model.SensorReading):
 
 
 def sees_obstacle(sensor_data: model.SensorReading) -> bool:
-    if any(get_array(sensor_data) > TRESHOLD_IR_SENSOR):  # problem here
+    if any(get_array(sensor_data) > TRESHOLD_IR_SENSOR):
         return True
     return False
 
 
-# You can run this file directly to test your code on the thymio
+#Run this file directly to test your code on the thymio
 if __name__ == "__main__":
     # Create the thymio connection
     th = thymio.Thymio()
