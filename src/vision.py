@@ -1,7 +1,7 @@
 from typing import Literal, Mapping
 import cv2
 import numpy as np
-from src import model
+from src import model, utils
 from dataclasses import dataclass
 
 
@@ -290,9 +290,7 @@ class VisionPipeline:
         y = (y1 + y2) / 2
 
         # Compute angle between y-axis and vector
-        v = np.array([x1 - x2, y1 - y2])
-        v = v / np.linalg.norm(v)
-        alpha = -np.arctan2(-v[0], v[1])
+        alpha = utils.get_global_angle(x2, y2, x1, y1)
 
         # We computed the angle of the diagonal, so add 45 degrees for correction
         alpha -= np.pi / 4
