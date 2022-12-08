@@ -7,14 +7,15 @@ import matplotlib.pyplot as plt
 
 
 def update_robot(
-    robot: model.Robot, command: model.MotorSpeed, sensors: model.SensorReading, states
+    robot: model.Robot, command: model.MotorSpeed, sensors: model.SensorReading, states,camera
 ):
-
+    if not camera:
+        states.Q=states.Q[3:,3:]
     x, P = states.Kalmanfilter(
         np.array([command.left, command.right]),
         np.array([sensors.motor.left, sensors.motor.right]),
         np.array([robot.position.x, robot.position.y, robot.angle]),
-        True,
+        camera,
     )
     robot.position.x = x[0]
     robot.position.y = x[1]
@@ -25,9 +26,9 @@ def initialise(initialposition, initialangle):
     L = 150
     thetadotvar = 0.6
     speedvar = 6.15
-    posvar = 2
+    posvar = 1
     thetavar = 0.01
-    measvar = np.diag([2, 2, 2 / L, 6.15, 6.15 / L])
+    measvar = np.diag([1, 1, 1 / L, 0.434782608*6.15, 0.434782608*6.15 / L])
     statevar = np.diag([posvar, posvar, thetavar, speedvar, speedvar / L])
     y = filter(
         np.concatenate((initialposition, [initialangle], [0, 0])),
@@ -54,7 +55,7 @@ class filter:
         self.u_prev = np.array([0, 0])
         self.speedconv = 0.434782608
 
-    def Kalmanfilter(self, u, speed, camerapos, camera=False):
+    def Kalmanfilter(self, u, speed, camerapos=0, camera=False):
         # x=[x,y,theta,xdot,thetadot]
         # u=[vl,vr]
         udiff = u - self.u_prev
