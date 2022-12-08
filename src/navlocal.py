@@ -6,19 +6,17 @@ import numpy as np
 TRESHOLD_IR_SENSOR = 1100
 TURN_SPEED = 150
 DELTA_ANGLE_SENSOR = 80 / 5  # angle between distance sensors (in degree)
-##### There is still the problem where the robot takes very little steps when an object is on the left, still searching for the origin.
 
 def set_motor_speed(th: thymio.Thymio, speed: model.MotorSpeed):
     command = speed
     th.process_command(command)
     return
 
-
 def avoid_obstacle(th: thymio.Thymio, robot_position):
     sensor_data = th.read_sensor_data()
     pos_data = robot_position()
-    last_speed_l = th.read_sensor_data()
-    last_speed_r = th.read_sensor_data()
+    #last_speed_l = th.read_sensor_data()
+    #last_speed_r = th.read_sensor_data()
     last_speed = 100 #set last speed, shoud be last know speed unless it's the start
     time.sleep(0.1)
     while sees_obstacle(sensor_data):
@@ -28,23 +26,24 @@ def avoid_obstacle(th: thymio.Thymio, robot_position):
         sum_angle = 0.0
         angle = get_angle(sensor_data)
         current_angle_pos = last_angle_pos
+        print("new loop")
         while True:
             current_angle_pos = robot_position().angle
             delta = abs(current_angle_pos - last_angle_pos)
-            if delta > 3:
+            if delta > 2: #any large number in radian -> simply detect if there is a discontinuity
                 delta = delta - 2 * 3.14
-            last_angle_pos = current_angle_pos
-            sum_angle = sum_angle + delta
-            if angle > 0:
+            if angle >= 0:
                 set_motor_speed(
                     th, calculate_speed(last_speed, -TURN_SPEED)
-                )  # try different values
+                )
             else:
                 set_motor_speed(
                     th, calculate_speed(last_speed, TURN_SPEED)
-                )  # try different values
-            if sum_angle >= angle:
-                set_motor_speed(th, calculate_speed(last_speed, 0)) #stop turning
+                )
+            last_angle_pos = current_angle_pos
+            sum_angle = sum_angle + delta
+            if sum_angle >= abs(angle):
+                set_motor_speed(th, calculate_speed(last_speed, 0)) #stop turning -> Go straight
                 break
     return
 
