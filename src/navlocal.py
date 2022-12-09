@@ -15,8 +15,6 @@ def set_motor_speed(th: thymio.Thymio, speed: model.MotorSpeed):
 def avoid_obstacle(th: thymio.Thymio, robot_position):
     sensor_data = th.read_sensor_data()
     pos_data = robot_position()
-    #last_speed_l = th.read_sensor_data()
-    #last_speed_r = th.read_sensor_data()
     last_speed = 100 #set last speed, shoud be last know speed unless it's the start
     time.sleep(0.1)
     while sees_obstacle(sensor_data):
@@ -26,7 +24,6 @@ def avoid_obstacle(th: thymio.Thymio, robot_position):
         sum_angle = 0.0
         angle = get_angle(sensor_data)
         current_angle_pos = last_angle_pos
-        print("new loop")
         while True:
             current_angle_pos = robot_position().angle
             delta = abs(current_angle_pos - last_angle_pos)
@@ -77,7 +74,7 @@ def sees_obstacle(sensor_data: model.SensorReading) -> bool:
         return True
     return False
 
-
+    
 #Run this file directly to test your code on the thymio
 if __name__ == "__main__":
     # Create the thymio connection
