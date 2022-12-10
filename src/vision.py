@@ -64,6 +64,17 @@ class ImageSource(FrameSource):
         return cv2.imread(self.path)
 
 
+class VideoSource(FrameSource):
+    def __init__(self, path: str) -> None:
+        self.cap = cv2.VideoCapture(path)
+        self.ret = True
+
+    def get_frame(self) -> np.ndarray:
+        ret, frame = self.cap.read()
+        self.ret = ret
+        return frame
+
+
 class WebcamSource(FrameSource):
     def __init__(self, builtin: bool, recording: str = None) -> None:
         """
@@ -304,7 +315,7 @@ class VisionPipeline:
         # Thymio aruco has ID 4
         if 4 not in markers:
             print("Warning: could not find robot pose!")
-            return self.last_robot_pose
+            return None
         # Get marker
         aruco_marker = markers[4]
 
