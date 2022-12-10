@@ -7,13 +7,15 @@ import matplotlib.pyplot as plt
 
 
 def update_robot(
-    robot: model.Robot, command: model.MotorSpeed, sensors: model.SensorReading, states,camera
+    robot: model.Robot,
+    command: model.MotorSpeed,
+    sensors: model.SensorReading,
+    states,
+    camera,
 ):
-    if not camera:
-        states.Q=states.Q[3:,3:]
     x, P = states.Kalmanfilter(
         np.array([command.left, command.right]),
-        np.array([sensors.motor.left, sensors.motor.right]),
+        np.array([sensors.left, sensors.right]),
         np.array([robot.position.x, robot.position.y, robot.angle]),
         camera,
     )
@@ -28,7 +30,7 @@ def initialise(initialposition, initialangle):
     speedvar = 6.15
     posvar = 1
     thetavar = 0.01
-    measvar = np.diag([1, 1, 1 / L, 0.434782608*6.15, 0.434782608*6.15 / L])
+    measvar = np.diag([1, 1, 1 / L, 0.434782608 * 6.15, 0.434782608 * 6.15 / L])
     statevar = np.diag([posvar, posvar, thetavar, speedvar, speedvar / L])
     y = filter(
         np.concatenate((initialposition, [initialangle], [0, 0])),
@@ -53,7 +55,7 @@ class filter:
         self.R = R
         self.Q = Q
         self.u_prev = np.array([0, 0])
-        self.speedconv = 0.434782608
+        self.speedconv = 0.15
 
     def Kalmanfilter(self, u, speed, camerapos=0, camera=False):
         # x=[x,y,theta,xdot,thetadot]
@@ -66,8 +68,8 @@ class filter:
         theta = x[2]
         A = np.array(
             [
-                [1, 0, 0, np.cos(theta) * self.T, 0],
-                [0, 1, 0, np.sin(theta) * self.T, 0],
+                [1, 0, 0, np.sin(theta) * self.T, 0],
+                [0, 1, 0, np.cos(theta) * self.T, 0],
                 [0, 0, 1, 0, self.T / self.L],
                 [0, 0, 0, 1, 0],
                 [0, 0, 0, 0, 1],
@@ -75,7 +77,7 @@ class filter:
         )
 
         B = np.zeros((5, 2))
-        B[3:] = [[0.5, 0.5], [-1 / L, 1 / L]]
+        B[3:] = [[0.5, 0.5], [-1 / self.L, 1 / self.L]]
         B = self.speedconv * B
         # print(B)
         x_pred = A @ x + B @ udiff
@@ -99,14 +101,18 @@ class filter:
             # print(camerapos,speed)
             measurement = np.append(camerapos, speed)
             M = np.eye(5)
-            M[3:, 3:] = self.speedconv * np.array([[0.5, 0.5], [-1 / L, 1 / L]])
+            M[3:, 3:] = self.speedconv * np.array(
+                [[0.5, 0.5], [-1 / self.L, 1 / self.L]]
+            )
             C = np.eye(5)
+            Q = self.Q
         else:
             measurement = speed
-            M = self.speedconv * np.array([[0.5, 0.5], [-1 / L, 1 / L]])
+            M = self.speedconv * np.array([[0.5, 0.5], [-1 / self.L, 1 / self.L]])
             C = np.concatenate((np.zeros((2, 3)), np.eye(2)), axis=1)
-        y = M @ measurement
-        K = P_new @ C.T @ (np.linalg.inv(C @ P_new @ C.T + self.Q))
+            Q = self.Q[3:, 3:]
+        y = np.ravel(M @ measurement)
+        K = P_new @ C.T @ (np.linalg.inv(C @ P_new @ C.T + Q))
         # C=np.concatenate((np.zeros((2,3)),np.eye(2)),axis=1)
 
         x_est = x_pred + K @ (y - C @ x_pred)
