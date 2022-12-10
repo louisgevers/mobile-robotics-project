@@ -1,8 +1,23 @@
-from typing import Literal, Mapping
+from typing import Mapping
 import cv2
 import numpy as np
 from src import model, utils
 from dataclasses import dataclass
+import threading
+
+
+class TakeLatestFrameThread(threading.Thread):
+    def __init__(self, source: cv2.VideoCapture):
+        self.source = source
+        self.frame = None
+        super().__init__()
+        self.start()
+
+    def run(self):
+        while True:
+            ret, frame = self.source.read()
+            if ret:
+                self.frame = frame
 
 
 class FrameSource:
@@ -42,14 +57,12 @@ class WebcamSource(FrameSource):
         Args:
             builtin (bool): Whether to use the laptop webcam.
         """
-        self.builtin = builtin
+        index = 0 if builtin else 2
+        cap = cv2.VideoCapture(index)
+        self.camera_thread = TakeLatestFrameThread(cap)
 
     def get_frame(self) -> np.ndarray:
-        index = 0 if self.builtin else 2
-        cap = cv2.VideoCapture(index)
-        _, frame = cap.read()
-        cap.release()
-        return frame
+        return self.camera_thread.frame
 
 
 @dataclass
