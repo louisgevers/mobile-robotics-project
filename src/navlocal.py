@@ -1,91 +1,50 @@
-from src import model, thymio
-import time
-import math
+from src import model, navglobal
 import numpy as np
+import time
 
-TRESHOLD_IR_SENSOR = 1100 #Treshold used for IR Sensor
-TURN_SPEED = 150 #This parameter determine the turn speed, determined by trial and error.
-DELTA_ANGLE_SENSOR = 80 / 5  # angle between distance sensors (in degree)
-LINEAR_SPEED = 100 #This parameter determine the linear speed, determined by trial and error.
-
-#Set the speed
-def set_motor_speed(th: thymio.Thymio, speed: model.MotorSpeed):
-    command = speed
-    th.process_command(command)
-    return
+SPEED = navglobal.SPEED / 2
 
 
-def avoid_obstacle(th: thymio.Thymio, robot_position):
-    sensor_data = th.read_sensor_data()
-    pos_data = robot_position()
-    while sees_obstacle(sensor_data):
-        sensor_data = th.read_sensor_data()
-        pos_data = robot_position()
-        last_angle_pos = pos_data.angle
-        sum_angle = 0.0 #Reset
-        angle = get_angle(sensor_data) #Calculate angle where there is the least density of obstacles
-        current_angle_pos = last_angle_pos
-        #Turn until we reached the angle of least density
-        while True:
-            current_angle_pos = robot_position().angle
-            #Caculate angle displacement between each loop
-            delta = abs(current_angle_pos - last_angle_pos)
-            if delta > 2: #Detect if there is a discontinuity (If displacement is too big)
-                delta = delta - 2 * 3.14
-            if angle >= 0: #Turn right
-                set_motor_speed(
-                    th, calculate_speed(LINEAR_SPEED, -TURN_SPEED)
-                )
-            else: #Turn left
-                set_motor_speed(
-                    th, calculate_speed(LINEAR_SPEED, TURN_SPEED)
-                )
-            last_angle_pos = current_angle_pos
-            sum_angle = sum_angle + delta
-            if sum_angle >= abs(angle): #Reached Goal
-                set_motor_speed(th, calculate_speed(LINEAR_SPEED, 0)) #stop turning -> Go straight
-                break
-            time.sleep(0.1)
-    return
+class LocalNavigation:
+    def __init__(
+        self, ir_sensor_threshold=1100, delta_angle=80 / 5, turn_threshold=25, timeout=4
+    ) -> None:
+        self.ir_sensor_threshold = ir_sensor_threshold
+        self.delta_angle = np.deg2rad(delta_angle)
+        self.turn_threshold = np.deg2rad(turn_threshold)
+        self.timeout = timeout
+        self.last_seen = None
 
-#Calculate angle where there is the least density of obstacles
-def get_angle(sensor_data: model.SensorReading) -> float:
-    alpha = DELTA_ANGLE_SENSOR * math.pi / 180 #angle between IR sensors
-    #Array of index for each sensor
-    alpha_array = [-2 * alpha, 1 * alpha, 0, 1 * alpha, 2 * alpha]
-    tmp1 = 0
-    tmp2 = 10e-7
-    #Average
-    for i in range(5):
-        tmp1 = tmp1 + alpha_array[i] * get_array(sensor_data)[i]
-        tmp2 = tmp2 + get_array(sensor_data)[i]
-    return tmp1 / tmp2
+    def avoidance_mode(self, sensor_data: model.SensorReading) -> bool:
+        if self.sees_obstacle(sensor_data):
+            self.last_seen = time.time()
+            return True
+        elif self.last_seen is not None:
+            return time.time() - self.last_seen < self.timeout
+        else:
+            return False
 
-#Calculate the speed of each motor based on the linear speed and angular speed that we wish for
-def calculate_speed(linear, angular) -> model.MotorSpeed:
-    rspeed = linear + angular / 2
-    lspeed = linear - angular / 2
-    return model.MotorSpeed(left=rspeed, right=lspeed)
+    def next_command(self, sensor_data: model.SensorReading) -> model.MotorSpeed:
+        if not self.sees_obstacle(sensor_data):
+            return model.MotorSpeed(left=SPEED, right=SPEED)
+        angle = self.get_angle(sensor_data)
+        if abs(angle) < self.turn_threshold or max(sensor_data.horizontal.v) > 4000:
+            return self.turn(angle)
+        else:
+            return model.MotorSpeed(left=SPEED, right=SPEED)
 
-#Return array of all IR sensors
-def get_array(sensor_data: model.SensorReading):
-    tmp = sensor_data.horizontal
-    return np.array(
-        [tmp.left, tmp.center_left, tmp.center, tmp.center_right, tmp.right]
-    )
+    def sees_obstacle(self, sensor_data: model.SensorReading) -> bool:
+        return any(sensor_data.horizontal.v > self.ir_sensor_threshold)
 
-#If IR sensor reads over a treshold, turn true
-def sees_obstacle(sensor_data: model.SensorReading) -> bool:
-    if any(get_array(sensor_data) > TRESHOLD_IR_SENSOR):
-        return True
-    return False
+    def get_angle(self, sensor_data: model.SensorReading) -> float:
+        sum_alpha = 0
+        for alpha, sensor in zip([-2, 1, 0, 1, 2], sensor_data.horizontal.v):
+            sum_alpha += alpha * self.delta_angle * sensor
 
-    
-#Run this file directly to test your code on the thymio
-if __name__ == "__main__":
-    # Create the thymio connection
-    th = thymio.Thymio()
-    while True:
-        avoid_obstacle(th)
-    # Stop the robot
-    th.stop()
+        return sum_alpha / sum(sensor_data.horizontal.v)
+
+    def turn(self, angle: float) -> model.MotorSpeed:
+        if angle > 0:
+            return model.MotorSpeed(left=-SPEED, right=SPEED)
+        else:
+            return model.MotorSpeed(left=SPEED, right=-SPEED)
