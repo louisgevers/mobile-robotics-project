@@ -7,17 +7,32 @@ import threading
 
 
 class TakeLatestFrameThread(threading.Thread):
-    def __init__(self, source: cv2.VideoCapture):
+    def __init__(self, source: cv2.VideoCapture, recording: str = None):
         self.source = source
         self.frame = None
+        self.recording = recording
+        self.out = None
         super().__init__()
         self.start()
+
+    def setup_recording(self):
+        frame_width = int(self.source.get(3))
+        frame_height = int(self.source.get(4))
+
+        self.out = cv2.VideoWriter(
+            self.recording,
+            cv2.VideoWriter_fourcc(*"MJPG"),
+            30,
+            (frame_width, frame_height),
+        )
 
     def run(self):
         while True:
             ret, frame = self.source.read()
             if ret:
                 self.frame = frame
+                if self.out is not None:
+                    self.out.write(frame)
 
 
 class FrameSource:
@@ -50,7 +65,7 @@ class ImageSource(FrameSource):
 
 
 class WebcamSource(FrameSource):
-    def __init__(self, builtin: bool) -> None:
+    def __init__(self, builtin: bool, recording: str = None) -> None:
         """
         Uses a webcam as source of frames.
 
@@ -59,7 +74,7 @@ class WebcamSource(FrameSource):
         """
         index = 0 if builtin else 2
         cap = cv2.VideoCapture(index)
-        self.camera_thread = TakeLatestFrameThread(cap)
+        self.camera_thread = TakeLatestFrameThread(cap, recording)
 
     def get_frame(self) -> np.ndarray:
         return self.camera_thread.frame
