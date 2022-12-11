@@ -199,13 +199,11 @@ class VisionTools:
         # Returns all centroids of detected contours
         # Filter color before this to extract centroids of a given color
 
-        # Use Canny edge detection
-        edges = cv2.Canny(img, 100, 100)
+        # # Use Canny edge detection
+        # edges = cv2.Canny(img, 100, 100)
 
         # Get all (external) contours
-        contours, _ = cv2.findContours(
-            edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-        )
+        contours = self.get_contours(img)
 
         # Sort contours by descending area
         contours = sorted(contours, key=cv2.contourArea, reverse=True)
@@ -223,6 +221,11 @@ class VisionTools:
 
         return np.array(centroids)
 
+    def get_contours(self, img: np.ndarray) -> np.ndarray:
+        # Get all (external) contours
+        contours, _ = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        return contours
+
     def get_polygon_contours(self, img: np.ndarray, dilate=0) -> np.ndarray:
         # Returns the (approximated) contours
         # Filter color before this to extract contours of a given color
@@ -233,7 +236,7 @@ class VisionTools:
             img = cv2.dilate(img, kernel, iterations=1)
 
         # Get all (external) contours
-        contours, _ = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours = self.get_contours(img)
 
         # Approximate contours with polygon
         polygons = []
@@ -345,32 +348,3 @@ class VisionPipeline:
 
         self.last_robot_pose = model.Robot(position=model.Point(x, y), angle=alpha)
         return self.last_robot_pose
-
-
-def draw_world(img: np.ndarray, world: model.World):
-    # Draw a green circle at the goal
-    cv2.circle(img, np.int32(world.goal.v), 4, (0, 255, 0), 2)
-
-    # Convert obstacle points to contours
-    contours = []
-    for obstacle in world.obstacles:
-        contour = []
-        for point in obstacle:
-            contour.append([point.v])
-        contours.append(np.array(contour))
-    # Draw blue contours for obstacles
-    cv2.drawContours(img, contours, -1, (255, 0, 0))
-
-    # Draw robot position and orientation
-    # Convert to array for drawing
-    position = np.int32(world.robot.position.v)
-
-    # Compute direction vector for drawing
-    alpha = world.robot.angle
-    direction_vector = np.array([-np.sin(-alpha), np.cos(-alpha)])
-
-    # Draw a circle at the detected position
-    cv2.circle(img, position, 4, color=(0, 255, 255), thickness=8)
-    cv2.arrowedLine(
-        img, position, position + np.int32(100 * direction_vector), (0, 0, 255), 2
-    )
