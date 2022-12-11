@@ -52,9 +52,9 @@ class Filter:
         camera: bool = True,
     ) -> model.Robot:
         x = self.__kalman_filter(
-            np.array([command.left, command.right]),
-            np.array([sensors.motor.left, sensors.motor.right]),
-            np.array([robot.position.x, robot.position.y, robot.angle]),
+            np.array([command.left, command.right]).ravel(),
+            np.array([sensors.motor.left, sensors.motor.right]).ravel(),
+            np.array([robot.position.x, robot.position.y, robot.angle]).ravel(),
             camera,
         )
         return model.Robot(position=model.Point(x=x[0], y=x[1]), angle=x[2])
@@ -115,7 +115,7 @@ class Filter:
             C = np.concatenate((np.zeros((2, 3)), np.eye(2)), axis=1)
             Q = self.Q[3:, 3:]
 
-        y = np.ravel(M @ measurement)
+        y = (M @ measurement).ravel()
         K = P_new @ C.T @ (np.linalg.inv(C @ P_new @ C.T + Q))
 
         x_est = x_pred + K @ (y - C @ x_pred)

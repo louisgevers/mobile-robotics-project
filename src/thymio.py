@@ -14,8 +14,8 @@ class Thymio:
     def __init__(self) -> None:
         # Create initial variables
         self._variables = {
-            "motor.left.speed": 0,
-            "motor.right.speed": 0,
+            "motor.left.speed": [0],
+            "motor.right.speed": [0],
             "prox.horizontal": [0, 0, 0, 0, 0],
             "prox.ground.delta": [0, 0],
         }
@@ -99,8 +99,8 @@ class Thymio:
             horizontal=model.HorizontalSensor(horizontal),
             ground=model.GroundSensor(ground),
             motor=model.MotorSpeed(
-                self._variables["motor.left.speed"],
-                self._variables["motor.right.speed"],
+                self._variables["motor.left.speed"][0],
+                self._variables["motor.right.speed"][0],
             ),
         )
 
