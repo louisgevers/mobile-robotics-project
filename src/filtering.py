@@ -94,7 +94,7 @@ class Filter:
         G = np.array(
             [
                 [1, 0, -self.T * np.sin(theta) * x[3], np.cos(theta) * self.T, 0],
-                [0, 1, self.T * np.cos(theta) * x[4], np.sin(theta) * self.T, 0],
+                [0, 1, self.T * np.cos(theta) * x[3], np.sin(theta) * self.T, 0],
                 [0, 0, 1, 0, self.T / self.L],
                 [0, 0, 0, 1, 0],
                 [0, 0, 0, 0, 1],
