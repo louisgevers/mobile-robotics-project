@@ -22,14 +22,16 @@ def display_aruco_markers(source: vision.FrameSource, tools: vision.VisionTools)
     plot_image(result)
 
 
-def draw_path(img: np.ndarray, path: Sequence[model.Point]):
+def draw_path(img: np.ndarray, path: Sequence[model.Point]) -> np.ndarray:
+    result = img.copy()
     # Draw the path
     for i in range(len(path) - 1):
         start = path[i]
         end = path[i + 1]
         cv2.line(
-            img, np.int32(start.v), np.int32(end.v), color=(255, 0, 255), thickness=2
+            result, np.int32(start.v), np.int32(end.v), color=(255, 0, 255), thickness=2
         )
+    return result
 
 
 def draw_robot_pose(img: np.ndarray, robot: model.Robot) -> np.ndarray:

@@ -76,14 +76,13 @@ class VideoSource(FrameSource):
 
 
 class WebcamSource(FrameSource):
-    def __init__(self, builtin: bool, recording: str = None) -> None:
+    def __init__(self, index: int, recording: str = None) -> None:
         """
         Uses a webcam as source of frames.
 
         Args:
             builtin (bool): Whether to use the laptop webcam.
         """
-        index = 0 if builtin else 2
         cap = cv2.VideoCapture(index)
         self.camera_thread = TakeLatestFrameThread(cap, recording)
 
