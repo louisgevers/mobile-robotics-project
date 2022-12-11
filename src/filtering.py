@@ -114,7 +114,9 @@ class Filter:
             Q = self.Q
         else:
             measurement = speed
-            M = self.speedconv * np.array([[0.5, 0.5], [1 / self.L, -1 / self.L]])
+            M = self.speedconv * np.array(
+                [[0.5, 0.5], [1 / self.L, -1 / self.L]]
+            )
             C = np.concatenate((np.zeros((2, 3)), np.eye(2)), axis=1)
             Q = self.Q[3:, 3:]
 
