@@ -51,7 +51,7 @@ class Filter:
         sensors: model.SensorReading,
         camera: bool = True,
     ) -> model.Robot:
-        x = self.__kalman_filter(
+        x = self.kalman_filter(
             np.array([command.left, command.right]).ravel(),
             np.array([sensors.motor.left, sensors.motor.right]).ravel(),
             np.array([robot.position.x, robot.position.y, robot.angle]).ravel(),
@@ -62,7 +62,7 @@ class Filter:
             position=model.Point(x=result[0], y=result[1]), angle=result[2]
         )
 
-    def __kalman_filter(
+    def kalman_filter(
         self,
         u: np.ndarray,
         speed: np.ndarray,
@@ -79,14 +79,14 @@ class Filter:
             [
                 [1, 0, 0, np.sin(theta) * self.T, 0],
                 [0, 1, 0, np.cos(theta) * self.T, 0],
-                [0, 0, 1, 0, self.T / self.L],
+                [0, 0, 1, 0, self.T],
                 [0, 0, 0, 1, 0],
                 [0, 0, 0, 0, 1],
             ]
         )
 
         B = np.zeros((5, 2))
-        B[3:] = [[0.5, 0.5], [-1 / self.L, 1 / self.L]]
+        B[3:] = [[0.5, 0.5], [1 / self.L, -1 / self.L]]
         B = self.speedconv * B
 
         x_pred = A @ x + B @ udiff
@@ -95,7 +95,7 @@ class Filter:
             [
                 [1, 0, -self.T * np.sin(theta) * x[3], np.cos(theta) * self.T, 0],
                 [0, 1, self.T * np.cos(theta) * x[3], np.sin(theta) * self.T, 0],
-                [0, 0, 1, 0, self.T / self.L],
+                [0, 0, 1, 0, self.T ],
                 [0, 0, 0, 1, 0],
                 [0, 0, 0, 0, 1],
             ]
@@ -108,13 +108,13 @@ class Filter:
             measurement = np.append(camerapos, speed)
             M = np.eye(5)
             M[3:, 3:] = self.speedconv * np.array(
-                [[0.5, 0.5], [-1 / self.L, 1 / self.L]]
+                [[0.5, 0.5], [1 / self.L, -1 / self.L]]
             )
             C = np.eye(5)
             Q = self.Q
         else:
             measurement = speed
-            M = self.speedconv * np.array([[0.5, 0.5], [-1 / self.L, 1 / self.L]])
+            M = self.speedconv * np.array([[0.5, 0.5], [1 / self.L, -1 / self.L]])
             C = np.concatenate((np.zeros((2, 3)), np.eye(2)), axis=1)
             Q = self.Q[3:, 3:]
 
