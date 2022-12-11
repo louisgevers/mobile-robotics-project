@@ -3,3 +3,4 @@ numpy==1.23.3
 opencv-python==4.6.0.66
 pyvisgraph==0.2.1
 tdmclient==0.1.19
+opencv-contrib-python==4.6.0.66
