@@ -31,8 +31,9 @@ Ku_angle, Tu_angle = 0.8, 100
 PID_coefficients_angle = np.array([0.6 * Ku_angle, 1.2 * Ku_angle / Tu_angle, 3 * Ku_angle * Tu_angle / 40])  # [Kp, Ki, Kd]
 
 # collective PID
+sensibility_position = 0.5
 sensibility_angle = np.pi/8
-PID_weight_angle_position = np.array([0.75, 0.25])
+PID_weight_angle_position = np.array([0.25, 0.75])
 correction = np.zeros((4, 1))
 
 
@@ -106,7 +107,7 @@ def follow_path(robot: model.Robot, path: Sequence[model.Point]) -> model.MotorS
 
 
     #if error_angle is too high, priority to correct the angle first
-    if abs(error_angle) > sensibility_angle:
+    if abs(error_angle) > sensibility_angle and abs(error_position) < sensibility_position:
         if error_angle>0:
             rspeed = -255
             lspeed = 255
