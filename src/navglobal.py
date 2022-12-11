@@ -90,10 +90,10 @@ def follow_path(robot: model.Robot, path: Sequence[model.Point]) -> model.MotorS
     # PID on the angle
     # ----------------
     error_angle = robot.angle - np.arctan((p2[1]-p1[1])/(p2[0]-p1[0]))
-    if error_angle<=0:
-        correction[0] = -1
+    if error_angle>=0:
+        correction[2] = -1
     else:
-        correction[0] = +1
+        correction[2] = +1
 
 
         # PID correction for angle
@@ -117,11 +117,11 @@ def follow_path(robot: model.Robot, path: Sequence[model.Point]) -> model.MotorS
     else:
         # correction sent to the robot
         if robot.angle > 0 and robot.angle < np.pi:
-            rspeed = mean_speed + correction[0]*correction[1]
-            lspeed = mean_speed - correction[0]*correction[1]
+            rspeed = mean_speed + correction[0]*correction[1] + correction[2]*correction[3]*PID_weight_angle_position[0]
+            lspeed = mean_speed - correction[0]*correction[1] - correction[2]*correction[3]*PID_weight_angle_position[0]
         else:
-            rspeed = mean_speed - correction[0]*correction[1]
-            lspeed = mean_speed + correction[0]*correction[1]
+            rspeed = mean_speed - correction[0]*correction[1] - correction[2]*correction[3]*PID_weight_angle_position[0]
+            lspeed = mean_speed + correction[0]*correction[1] + correction[2]*correction[3]*PID_weight_angle_position[0]
 
 
     # restricting speed of motors between 255 and -255
