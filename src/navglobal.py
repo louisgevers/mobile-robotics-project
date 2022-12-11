@@ -6,7 +6,7 @@ import numpy as np
 # initialized values
 
 # reference speed
-max_speed = 100
+mean_speed = 100
 
 # Ziegler-Nichols method for PID
 
@@ -31,8 +31,8 @@ Ku_angle, Tu_angle = 0.8, 100
 PID_coefficients_angle = np.array([0.6 * Ku_angle, 1.2 * Ku_angle / Tu_angle, 3 * Ku_angle * Tu_angle / 40])  # [Kp, Ki, Kd]
 
 # collective PID
-sensibility_position = 0.5
-sensibility_angle = np.pi/8
+sensibility_position = 20
+sensibility_angle = np.pi/32
 PID_weight_angle_position = np.array([0.25, 0.75])
 correction = np.zeros((4, 1))
 
@@ -90,7 +90,7 @@ def follow_path(robot: model.Robot, path: Sequence[model.Point]) -> model.MotorS
     # PID on the angle
     # ----------------
     error_angle = robot.angle - np.arctan((p2[1]-p1[1])/(p2[0]-p1[0]))
-    if error_angle>=0:
+    if error_angle<=0:
         correction[0] = -1
     else:
         correction[0] = +1
@@ -117,11 +117,11 @@ def follow_path(robot: model.Robot, path: Sequence[model.Point]) -> model.MotorS
     else:
         # correction sent to the robot
         if robot.angle > 0 and robot.angle < np.pi:
-            rspeed = max_speed + correction[0]*correction[1]*PID_weight_angle_position[1] + correction[2]*correction[3]*PID_weight_angle_position[0]
-            lspeed = max_speed - correction[0]*correction[1]*PID_weight_angle_position[1] - correction[2]*correction[3]*PID_weight_angle_position[0]
+            rspeed = mean_speed + correction[0]*correction[1]
+            lspeed = mean_speed - correction[0]*correction[1]
         else:
-            rspeed = max_speed - correction[0]*correction[1]*PID_weight_angle_position[1] - correction[2]*correction[3]*PID_weight_angle_position[0]
-            lspeed = max_speed + correction[0]*correction[1]*PID_weight_angle_position[1] + correction[2]*correction[3]*PID_weight_angle_position[0]
+            rspeed = mean_speed - correction[0]*correction[1]
+            lspeed = mean_speed + correction[0]*correction[1]
 
 
     # restricting speed of motors between 255 and -255
