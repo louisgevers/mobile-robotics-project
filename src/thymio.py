@@ -31,15 +31,20 @@ class Thymio:
         Starts an asynchronous connection with the Thymio.
         This has to be run inside a thread to not block the application.
         """
-        with ClientAsync() as client:
+        try:
+            with ClientAsync() as client:
 
-            async def prog():
-                with await client.lock() as self._node:
-                    await self._node.watch(variables=True)
-                    self._node.add_variables_changed_listener(self.on_variables_changed)
-                    await client.sleep()
+                async def prog():
+                    with await client.lock() as self._node:
+                        await self._node.watch(variables=True)
+                        self._node.add_variables_changed_listener(
+                            self.on_variables_changed
+                        )
+                        await client.sleep()
 
-            asyncio.run(prog())
+                asyncio.run(prog())
+        except:
+            print("Connection to Thymio failed!")
 
     def stop(self):
         """
