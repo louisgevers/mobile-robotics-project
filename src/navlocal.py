@@ -38,7 +38,7 @@ class LocalNavigation:
 
     def get_angle(self, sensor_data: model.SensorReading) -> float:
         sum_alpha = 0
-        for alpha, sensor in zip([-2, 1, 0, 1, 2], sensor_data.horizontal.v):
+        for alpha, sensor in zip([-2, -1, 0, 1, 2], sensor_data.horizontal.v):
             sum_alpha += alpha * self.delta_angle * sensor
 
         return sum_alpha / sum(sensor_data.horizontal.v)
