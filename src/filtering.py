@@ -57,7 +57,10 @@ class Filter:
             np.array([robot.position.x, robot.position.y, robot.angle]).ravel(),
             camera,
         )
-        return model.Robot(position=model.Point(x=x[0], y=x[1]), angle=x[2])
+        result = x.ravel()
+        return model.Robot(
+            position=model.Point(x=result[0], y=result[1]), angle=result[2]
+        )
 
     def __kalman_filter(
         self,
