@@ -2,7 +2,7 @@ from typing import Sequence
 from src import model, utils
 import numpy as np
 
-ANGLE_TOLERANCE = np.deg2rad(10)
+ANGLE_TOLERANCE = np.deg2rad(5)
 SPEED = 100
 
 
@@ -12,7 +12,7 @@ class GlobalNavigation:
         self.path = path
 
     def next_command(self, robot: model.Robot) -> model.MotorSpeed:
-        if robot.position.distance(self.get_next_point()) <= 10:
+        if robot.position.distance(self.get_next_point()) <= 5:
             self.next_index += 1
         angle_error = self.get_angle_difference(robot)
         if abs(angle_error) > ANGLE_TOLERANCE:

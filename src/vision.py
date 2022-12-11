@@ -127,6 +127,7 @@ class VisionTools:
             ]
         )
         self.latest_warp_coordinates = None
+        self.transform = None
 
     def get_aruco_markers(self, img: np.ndarray):
         """
@@ -175,10 +176,13 @@ class VisionTools:
             print("Warning: could not calibrate image!")
             return img
         # Transform the image
-        transform = cv2.getPerspectiveTransform(
+        self.transform = cv2.getPerspectiveTransform(
             self.last_warp_coordinates, self.target_transform
         )
-        return cv2.warpPerspective(img, transform, self.target_resolution)
+        return cv2.warpPerspective(img, self.transform, self.target_resolution)
+
+    def warp_perspective(self, img: np.ndarray):
+        return cv2.warpPerspective(img, self.transform, self.target_resolution)
 
     def get_color_mask(self, img: np.ndarray, bounds: HSVBound) -> np.ndarray:
         # Blur the image to get rid of noise
@@ -187,6 +191,8 @@ class VisionTools:
         hsv_img = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
         # Filter pixels in the chosen color range
         mask = cv2.inRange(hsv_img, bounds.lb, bounds.ub)
+        # Filter noise with erosion
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((5, 5)))
         return mask
 
     def get_centroids(self, img: np.ndarray) -> np.ndarray:
@@ -272,6 +278,9 @@ class VisionPipeline:
         return self.latest_frame
 
     def __calibrate(self, img: np.ndarray) -> np.ndarray:
+        # If a transform is defined we can transform directly
+        if self.tools.transform is not None:
+            return self.tools.warp_perspective(img)
         markers = self.tools.get_aruco_dict(img)
         return self.tools.get_aruco_calibrated(img, markers)
 
