@@ -252,9 +252,9 @@ class VisionPipeline:
         self,
         source: FrameSource,
         tools: VisionTools = VisionTools(),
-        red_bounds=HSVBound(lb=np.array([130, 25, 90]), ub=np.array([180, 255, 255])),
+        red_bounds=HSVBound(lb=np.array([0, 100, 0]), ub=np.array([180, 200, 255])),
         blue_bounds=HSVBound(lb=np.array([50, 70, 70]), ub=np.array([110, 255, 255])),
-        dilate_factor=80,
+        dilate_factor=140,
     ) -> None:
         self.source = source
         self.tools = tools
