@@ -1,5 +1,5 @@
 from typing import Sequence
-import cv2
+import dataclasses
 import time
 from src import model, vision, navglobal, navlocal, thymio, pathfinder
 
@@ -34,12 +34,14 @@ class Recorder:
         # Global navigation until the goal
         while not world.robot_at_goal(60):
             world.robot = self.viz.get_robot_pose()
+            if world.robot is None:
+                world.robot = self.viz.last_robot_pose
             if avoider.avoidance_mode(sensor_data):
                 command = avoider.next_command(sensor_data)
                 was_avoiding = True
             else:
                 if was_avoiding:
-                    path = pathfinder.find_path(world)
+                    path = pathfinder.find_path(world, self.viz.tools.target_resolution)
                     navigator = navglobal.GlobalNavigation(path)
                     was_avoiding = False
                 command = navigator.next_command(world.robot)
@@ -47,7 +49,15 @@ class Recorder:
             sensor_data = th.read_sensor_data()
             # Add timestep to record
             elapsed = time.time() - self.start
-            record.append({elapsed: (world.robot, command, sensor_data.motor, path)})
+            record.append(
+                (
+                    elapsed,
+                    dataclasses.replace(world.robot),
+                    dataclasses.replace(command),
+                    dataclasses.replace(sensor_data),
+                    path,
+                )
+            )
         # Disconnect thymio
         th.stop()
         # Dump to file
