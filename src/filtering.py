@@ -11,7 +11,7 @@ class Filter:
         self.L = 150
         self.T = 0.1
         SPEED_VAR = 6.15
-        SPEED_CONVERSION = 0.15
+        SPEED_CONVERSION = 0.4
         POS_VAR = 1
         THETA_VAR = 0.01
 
@@ -42,7 +42,7 @@ class Filter:
             ]
         )
         self.u_prev = np.array([0, 0])
-        self.speedconv = 0.15
+        self.speedconv = SPEED_CONVERSION
 
     def update_robot(
         self,
@@ -86,7 +86,7 @@ class Filter:
         )
 
         B = np.zeros((5, 2))
-        B[3:] = [[0.5, 0.5], [1 / self.L, -1 / self.L]]
+        B[3:] = [[0.5, 0.5], [-1 / self.L, 1 / self.L]]
         B = self.speedconv * B
 
         x_pred = A @ x + B @ udiff
@@ -95,7 +95,7 @@ class Filter:
             [
                 [1, 0, -self.T * np.sin(theta) * x[3], np.cos(theta) * self.T, 0],
                 [0, 1, self.T * np.cos(theta) * x[3], np.sin(theta) * self.T, 0],
-                [0, 0, 1, 0, self.T ],
+                [0, 0, 1, 0, self.T],
                 [0, 0, 0, 1, 0],
                 [0, 0, 0, 0, 1],
             ]
@@ -108,7 +108,7 @@ class Filter:
             measurement = np.append(camerapos, speed)
             M = np.eye(5)
             M[3:, 3:] = self.speedconv * np.array(
-                [[0.5, 0.5], [1 / self.L, -1 / self.L]]
+                [[0.5, 0.5], [-1 / self.L, 1 / self.L]]
             )
             C = np.eye(5)
             Q = self.Q

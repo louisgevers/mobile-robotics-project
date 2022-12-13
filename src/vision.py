@@ -1,7 +1,7 @@
 from typing import Mapping
 import cv2
 import numpy as np
-from src import model, utils
+from src import model, utils, draw
 from dataclasses import dataclass
 import threading
 
@@ -12,12 +12,19 @@ class TakeLatestFrameThread(threading.Thread):
         self.frame = None
         self.recording = recording
         self.out = None
+        self.pipeline: VisionPipeline = None
+        self.world = None
+        self.path = None
         super().__init__()
         self.start()
 
     def setup_recording(self):
-        frame_width = int(self.source.get(3))
-        frame_height = int(self.source.get(4))
+        if self.pipeline is None:
+            frame_width = int(self.source.get(3))
+            frame_height = int(self.source.get(4))
+        else:
+            frame_width = self.pipeline.tools.target_resolution[0]
+            frame_height = self.pipeline.tools.target_resolution[1]
 
         self.out = cv2.VideoWriter(
             self.recording,
@@ -31,6 +38,12 @@ class TakeLatestFrameThread(threading.Thread):
             ret, frame = self.source.read()
             if ret:
                 self.frame = frame
+                if self.pipeline is not None:
+                    frame = self.pipeline.calibrate(frame)
+                if self.world is not None:
+                    frame = draw.draw_world(frame, self.world)
+                if self.path is not None:
+                    frame = draw.draw_path(frame, self.path)
                 if self.out is not None:
                     self.out.write(frame)
 
@@ -281,11 +294,11 @@ class VisionPipeline:
     def __read_frame(self, with_calibration: bool = False) -> np.ndarray:
         frame = self.source.get_frame()
         if with_calibration:
-            frame = self.__calibrate(frame)
+            frame = self.calibrate(frame)
         self.latest_frame = frame
         return self.latest_frame
 
-    def __calibrate(self, img: np.ndarray) -> np.ndarray:
+    def calibrate(self, img: np.ndarray) -> np.ndarray:
         # If a transform is defined we can transform directly
         if self.tools.transform is not None:
             return self.tools.warp_perspective(img)

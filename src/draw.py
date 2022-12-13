@@ -2,7 +2,7 @@ from typing import Sequence
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2
-from src import vision, model
+from src import model
 
 
 def plot_image(img: np.ndarray):
@@ -13,7 +13,7 @@ def plot_image(img: np.ndarray):
     plt.show()
 
 
-def display_aruco_markers(source: vision.FrameSource, tools: vision.VisionTools):
+def display_aruco_markers(source, tools):
     img = source.get_frame()
     corners, ids = tools.get_aruco_markers(img)
 
