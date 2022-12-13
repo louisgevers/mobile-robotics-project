@@ -27,12 +27,15 @@ class TakeLatestFrameThread(threading.Thread):
         )
 
     def run(self):
-        while True:
+        while self.source.isOpened():
             ret, frame = self.source.read()
             if ret:
                 self.frame = frame
                 if self.out is not None:
                     self.out.write(frame)
+
+    def release(self):
+        self.source.release()
 
 
 class FrameSource:
@@ -88,6 +91,9 @@ class WebcamSource(FrameSource):
 
     def get_frame(self) -> np.ndarray:
         return self.camera_thread.frame
+
+    def release(self):
+        self.camera_thread.release()
 
 
 @dataclass
